@@ -88,15 +88,19 @@ async def stream_action(game, histories: list, player_input: str):
 
     full_response = ""
 
-    async with async_client.messages.stream(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        system=system,
-        messages=messages,
-    ) as stream:
-        async for text in stream.text_stream:
-            full_response += text
-            yield ("text", text)
+    try:
+        async with async_client.messages.stream(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            system=system,
+            messages=messages,
+        ) as stream:
+            async for text in stream.text_stream:
+                full_response += text
+                yield ("text", text)
+    except Exception as e:
+        yield ("error", str(e))
+        return
 
     state_changes = parse_state_changes(full_response)
     token_count   = estimate_tokens(full_response)

@@ -56,6 +56,10 @@ export function useStream() {
               gmText += data.text
               appendStream(data.text)
             }
+            if (data.error) {
+              clearStream()
+              setStreamError(data.error)
+            }
             if (data.done) {
               if (data.character) updateCharacter(data.character)
               addHistory({ role: 'player', content: actionText })

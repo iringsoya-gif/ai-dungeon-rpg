@@ -204,6 +204,9 @@ async def take_action(
             if event_type == "text":
                 full_response += payload
                 yield f"data: {json.dumps({'text': payload})}\n\n"
+            elif event_type == "error":
+                yield f"data: {json.dumps({'error': payload})}\n\n"
+                return
             elif event_type == "done":
                 full_response = payload["full_response"]
                 state_changes = payload["state_changes"]

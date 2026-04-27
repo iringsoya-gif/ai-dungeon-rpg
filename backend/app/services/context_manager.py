@@ -28,6 +28,10 @@ class ContextManager:
                 "content": h.content,
             })
 
+        # Anthropic API requires messages to start with a user message
+        while messages and messages[0]["role"] == "assistant":
+            messages.pop(0)
+
         return messages
 
     async def compress_if_needed(self, game, histories: list, db, ai_client) -> None:
