@@ -28,9 +28,9 @@ class ContextManager:
                 "content": h.content,
             })
 
-        # Anthropic API requires messages to start with a user message
-        while messages and messages[0]["role"] == "assistant":
-            messages.pop(0)
+        # API requires first message to be user — preserve opening by prepending a marker
+        if messages and messages[0]["role"] == "assistant":
+            messages.insert(0, {"role": "user", "content": "[게임 시작]"})
 
         return messages
 
