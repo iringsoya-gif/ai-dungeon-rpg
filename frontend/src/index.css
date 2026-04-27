@@ -1,1 +1,110 @@
 @import "tailwindcss";
+
+/* ── Dark Fantasy RPG Design System ── */
+
+:root {
+  --bg:        #0a0a0f;
+  --surface:   #111118;
+  --surface2:  #1a1a24;
+  --border:    #2a2a3a;
+  --gold:      #c9a84c;
+  --gold-light:#e8c96a;
+  --emerald:   #10b981;
+  --text:      #f0ede8;
+  --muted:     #6b7280;
+  --red:       #ef4444;
+}
+
+html, body, #root {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Georgia', serif;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+/* Gold glow text */
+.text-gold-glow {
+  color: var(--gold-light);
+  text-shadow: 0 0 20px rgba(201,168,76,0.6), 0 0 40px rgba(201,168,76,0.3);
+}
+
+/* Gold border gradient card */
+.card-gold-border {
+  position: relative;
+  background: var(--surface);
+  border-radius: 1rem;
+}
+.card-gold-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 1rem;
+  padding: 1px;
+  background: linear-gradient(135deg, #c9a84c, #2a2a3a, #c9a84c);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Atmospheric hero gradient */
+.hero-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(120,40,160,0.15) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(30,60,120,0.2) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 100%, rgba(201,168,76,0.05) 0%, transparent 60%),
+    linear-gradient(180deg, #0a0a0f 0%, #0d0b14 50%, #0a0a0f 100%);
+}
+
+/* Animated glow CTA button */
+@keyframes goldPulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(201,168,76,0.4), 0 0 24px rgba(201,168,76,0.15); }
+  50%       { box-shadow: 0 0 24px rgba(201,168,76,0.7), 0 0 48px rgba(201,168,76,0.25); }
+}
+.btn-gold-glow {
+  animation: goldPulse 2.5s ease-in-out infinite;
+}
+
+/* Loading pulse for start button */
+@keyframes loadPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+.btn-loading {
+  animation: loadPulse 1.2s ease-in-out infinite;
+}
+
+/* Floating decorative orb */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) scale(1); opacity: 0.4; }
+  50%       { transform: translateY(-20px) scale(1.05); opacity: 0.6; }
+}
+.orb-float { animation: float 6s ease-in-out infinite; }
+.orb-float-slow { animation: float 9s ease-in-out infinite; }
+
+/* GM streaming cursor */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+.cursor-blink {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--gold);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: blink 1s step-end infinite;
+}
+
+/* Step indicator dot animation */
+@keyframes stepPulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(201,168,76,0.5); }
+  50%       { box-shadow: 0 0 14px rgba(201,168,76,0.9); }
+}
+.step-active { animation: stepPulse 1.8s ease-in-out infinite; }

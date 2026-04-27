@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 
 const CLASSES = [
-  { id: '전사',   label: '전사',   icon: '⚔️',  desc: '강한 체력과 힘' },
-  { id: '마법사',  label: '마법사',  icon: '🔮',  desc: '높은 지능과 마나' },
-  { id: '도적',   label: '도적',   icon: '🗡️',  desc: '뛰어난 민첩성' },
-  { id: '성직자',  label: '성직자',  icon: '✨',  desc: '카리스마와 회복' },
-  { id: '궁수',   label: '궁수',   icon: '🏹',  desc: '힘과 민첩의 균형' },
+  { id: '전사',  label: '전사',  icon: '⚔️',  desc: '강한 체력과 힘',       stats: { STR: 16, DEF: 14, INT: 6,  AGI: 8  } },
+  { id: '마법사', label: '마법사', icon: '🔮',  desc: '높은 지능과 마나',      stats: { STR: 6,  DEF: 6,  INT: 18, AGI: 10 } },
+  { id: '도적',  label: '도적',  icon: '🗡️',  desc: '뛰어난 민첩성',        stats: { STR: 10, DEF: 8,  INT: 10, AGI: 18 } },
+  { id: '성직자', label: '성직자', icon: '✨',  desc: '카리스마와 회복',       stats: { STR: 8,  DEF: 10, INT: 14, AGI: 8  } },
+  { id: '궁수',  label: '궁수',  icon: '🏹',  desc: '힘과 민첩의 균형',      stats: { STR: 12, DEF: 10, INT: 8,  AGI: 14 } },
 ]
 
 const TEMPLATES = [
@@ -17,6 +17,8 @@ const TEMPLATES = [
   { label: '현대',  icon: '🌆', desc: '현실과 비슷한 현대 도시' },
   { label: '커스텀', icon: '✏️', desc: '직접 세계관을 입력합니다' },
 ]
+
+const STEPS = ['세계관', '세계 설명', '캐릭터']
 
 export default function NewGame() {
   const navigate = useNavigate()
@@ -55,92 +57,363 @@ export default function NewGame() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-8">
-      <div className="max-w-2xl mx-auto">
-        <button onClick={() => navigate('/dashboard')} className="text-gray-500 hover:text-gray-300 mb-6 text-sm">← 뒤로</button>
-        <h1 className="text-3xl font-bold mb-8">새 모험 시작</h1>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+      <div style={{ maxWidth: '40rem', margin: '0 auto', padding: '2rem 1.5rem', width: '100%' }}>
 
+        {/* Back */}
+        <button
+          onClick={() => navigate('/dashboard')}
+          style={{ color: 'var(--muted)', fontSize: '0.85rem', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '2rem', padding: 0 }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--gold-light)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--muted)'}
+        >
+          ← 뒤로
+        </button>
+
+        {/* Title */}
+        <h1
+          style={{
+            fontSize: '2rem',
+            fontWeight: 800,
+            color: 'var(--gold-light)',
+            letterSpacing: '0.03em',
+            marginBottom: '0.5rem',
+            textShadow: '0 0 20px rgba(201,168,76,0.3)',
+          }}
+        >
+          새 모험 시작
+        </h1>
+        <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '2.5rem' }}>
+          당신만의 전설을 써내려가세요
+        </p>
+
+        {/* Step indicator */}
+        <div className="flex items-center gap-2 mb-8">
+          {STEPS.map((label, idx) => {
+            const s = idx + 1
+            const active  = step === s
+            const done    = step > s
+            return (
+              <div key={s} className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className={active ? 'step-active' : ''}
+                    style={{
+                      width: '1.75rem',
+                      height: '1.75rem',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      background: done
+                        ? 'linear-gradient(135deg, #8a6820, var(--gold))'
+                        : active
+                        ? 'var(--surface2)'
+                        : 'var(--surface)',
+                      border: `1px solid ${done || active ? 'var(--gold)' : 'var(--border)'}`,
+                      color: done ? '#0a0805' : active ? 'var(--gold)' : 'var(--muted)',
+                      transition: 'all 0.3s',
+                    }}
+                  >
+                    {done ? '✓' : s}
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      color: active ? 'var(--gold-light)' : done ? 'var(--gold)' : 'var(--muted)',
+                      fontWeight: active ? 600 : 400,
+                    }}
+                  >
+                    {label}
+                  </span>
+                </div>
+                {idx < STEPS.length - 1 && (
+                  <div style={{ width: '1.5rem', height: '1px', background: step > s ? 'var(--gold)' : 'var(--border)', transition: 'background 0.3s', flexShrink: 0 }} />
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* STEP 1 — World template */}
         {step === 1 && (
           <>
-            <h2 className="text-lg font-semibold mb-4 text-gray-300">세계관 선택</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#a89880', marginBottom: '1rem', letterSpacing: '0.05em' }}>
+              ✦ 세계관 선택
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem' }}>
               {TEMPLATES.map(t => (
-                <button key={t.label} onClick={() => selectTemplate(t)}
-                  className="bg-gray-900 border border-gray-800 rounded-xl p-5 text-left hover:border-emerald-500/50 transition">
-                  <div className="text-3xl mb-2">{t.icon}</div>
-                  <div className="font-semibold">{t.label}</div>
-                  <div className="text-xs text-gray-500 mt-1">{t.desc}</div>
+                <button
+                  key={t.label}
+                  onClick={() => selectTemplate(t)}
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '1rem',
+                    padding: '1.25rem 1rem',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'border-color 0.25s, box-shadow 0.25s, background 0.25s',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderColor = 'var(--gold)'
+                    e.currentTarget.style.background = 'var(--surface2)'
+                    e.currentTarget.style.boxShadow = '0 0 16px rgba(201,168,76,0.1)'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderColor = 'var(--border)'
+                    e.currentTarget.style.background = 'var(--surface)'
+                    e.currentTarget.style.boxShadow = 'none'
+                  }}
+                >
+                  <div style={{ fontSize: '2.25rem', marginBottom: '0.625rem' }}>{t.icon}</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text)', marginBottom: '0.25rem' }}>{t.label}</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--muted)', lineHeight: 1.4 }}>{t.desc}</div>
                 </button>
               ))}
             </div>
           </>
         )}
 
+        {/* STEP 2 — World description */}
         {step === 2 && (
           <>
-            <h2 className="text-lg font-semibold mb-2 text-gray-300">세계관 설명</h2>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#a89880', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>
+              ✦ 세계관 설명
+            </h2>
+            {template && (
+              <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '1rem' }}>
+                {template.icon} {template.label} — 원하는 대로 자유롭게 수정하세요
+              </p>
+            )}
             <textarea
               value={worldDesc}
               onChange={e => setWorldDesc(e.target.value)}
-              rows={4}
+              rows={5}
               placeholder="예: 마법이 존재하고 용이 지배하는 중세 왕국. 암흑 마법사가 왕을 조종하고 있다..."
-              className="w-full bg-gray-900 border border-gray-800 rounded-xl p-4 text-gray-200 resize-none mb-6 focus:border-emerald-500/50 outline-none"
+              style={{
+                width: '100%',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: '0.875rem',
+                padding: '1rem',
+                color: 'var(--text)',
+                resize: 'none',
+                marginBottom: '1.25rem',
+                outline: 'none',
+                fontSize: '0.9rem',
+                lineHeight: 1.6,
+                boxSizing: 'border-box',
+                transition: 'border-color 0.2s',
+              }}
+              onFocus={e => e.target.style.borderColor = 'rgba(201,168,76,0.5)'}
+              onBlur={e => e.target.style.borderColor = 'var(--border)'}
             />
-            <button onClick={() => setStep(3)}
-              className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-500">
+            <button
+              onClick={() => setStep(3)}
+              style={{
+                width: '100%',
+                padding: '0.875rem',
+                background: 'var(--surface2)',
+                border: '1px solid var(--gold)',
+                color: 'var(--gold-light)',
+                borderRadius: '0.875rem',
+                fontWeight: 700,
+                fontSize: '1rem',
+                cursor: 'pointer',
+                letterSpacing: '0.02em',
+                transition: 'background 0.2s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(201,168,76,0.1)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'var(--surface2)'}
+            >
               다음 → 캐릭터 생성
             </button>
           </>
         )}
 
+        {/* STEP 3 — Character creation */}
         {step === 3 && (
           <>
-            <h2 className="text-lg font-semibold mb-4 text-gray-300">캐릭터 생성</h2>
-            <div className="space-y-4">
-              <input value={charName} onChange={e => setCharName(e.target.value)}
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#a89880', marginBottom: '1.25rem', letterSpacing: '0.05em' }}>
+              ✦ 캐릭터 생성
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+              {/* Name */}
+              <input
+                value={charName}
+                onChange={e => setCharName(e.target.value)}
                 placeholder="캐릭터 이름"
-                className="w-full bg-gray-900 border border-gray-800 rounded-xl p-4 text-gray-200 focus:border-emerald-500/50 outline-none" />
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '0.875rem',
+                  padding: '0.875rem 1rem',
+                  color: 'var(--text)',
+                  outline: 'none',
+                  fontSize: '0.95rem',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={e => e.target.style.borderColor = 'rgba(201,168,76,0.5)'}
+                onBlur={e => e.target.style.borderColor = 'var(--border)'}
+              />
+
+              {/* Class selection */}
               <div>
-                <label className="block text-sm text-gray-400 mb-2">직업 선택</label>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {CLASSES.map(cls => (
-                    <button
-                      key={cls.id}
-                      type="button"
-                      onClick={() => setCharClass(cls.id)}
-                      className={`p-3 rounded-xl border text-left transition ${
-                        charClass === cls.id
-                          ? 'border-emerald-500 bg-emerald-950/50 text-white'
-                          : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-500'
-                      }`}
-                    >
-                      <div className="text-xl mb-1">{cls.icon}</div>
-                      <div className="font-semibold text-sm">{cls.label}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">{cls.desc}</div>
-                    </button>
-                  ))}
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.625rem', letterSpacing: '0.05em' }}>
+                  직업 선택
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.625rem' }}>
+                  {CLASSES.map(cls => {
+                    const sel = charClass === cls.id
+                    return (
+                      <button
+                        key={cls.id}
+                        type="button"
+                        onClick={() => setCharClass(cls.id)}
+                        style={{
+                          padding: '0.875rem 0.75rem',
+                          borderRadius: '0.875rem',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          background: sel ? 'rgba(201,168,76,0.08)' : 'var(--surface)',
+                          border: `1px solid ${sel ? 'var(--gold)' : 'var(--border)'}`,
+                          boxShadow: sel ? '0 0 12px rgba(201,168,76,0.15)' : 'none',
+                          transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={e => {
+                          if (!sel) {
+                            e.currentTarget.style.borderColor = 'rgba(201,168,76,0.4)'
+                            e.currentTarget.style.background = 'var(--surface2)'
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          if (!sel) {
+                            e.currentTarget.style.borderColor = 'var(--border)'
+                            e.currentTarget.style.background = 'var(--surface)'
+                          }
+                        }}
+                      >
+                        <div style={{ fontSize: '1.5rem', marginBottom: '0.4rem' }}>{cls.icon}</div>
+                        <div style={{ fontWeight: 700, fontSize: '0.875rem', color: sel ? 'var(--gold-light)' : 'var(--text)', marginBottom: '0.2rem' }}>
+                          {cls.label}
+                        </div>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>{cls.desc}</div>
+                        {/* Stat preview */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.15rem' }}>
+                          {Object.entries(cls.stats).map(([k, v]) => (
+                            <div key={k} style={{ fontFamily: 'monospace', fontSize: '0.6rem', color: sel ? 'var(--gold)' : '#5a5a70' }}>
+                              {k}:{v}
+                            </div>
+                          ))}
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
-              <textarea value={charBg} onChange={e => setCharBg(e.target.value)}
-                rows={3} placeholder="배경 스토리 (예: 고아 출신으로 마법학교를 졸업했다...)"
-                className="w-full bg-gray-900 border border-gray-800 rounded-xl p-4 text-gray-200 resize-none focus:border-emerald-500/50 outline-none" />
 
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
+              {/* Background */}
+              <textarea
+                value={charBg}
+                onChange={e => setCharBg(e.target.value)}
+                rows={3}
+                placeholder="배경 스토리 (예: 고아 출신으로 마법학교를 졸업했다...)"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '0.875rem',
+                  padding: '0.875rem 1rem',
+                  color: 'var(--text)',
+                  resize: 'none',
+                  outline: 'none',
+                  fontSize: '0.9rem',
+                  lineHeight: 1.6,
+                  boxSizing: 'border-box',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={e => e.target.style.borderColor = 'rgba(201,168,76,0.5)'}
+                onBlur={e => e.target.style.borderColor = 'var(--border)'}
+              />
+
+              {/* Hardcore toggle */}
+              <div
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '0.875rem',
+                  padding: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
                 <div>
-                  <div className="font-semibold">하드코어 모드</div>
-                  <div className="text-xs text-gray-500">사망 시 게임 영구 종료 (긴장감 극대화)</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: hardcore ? 'var(--red)' : 'var(--text)' }}>
+                    💀 하드코어 모드
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.2rem' }}>
+                    사망 시 게임 영구 종료 — 긴장감 극대화
+                  </div>
                 </div>
-                <button onClick={() => setHardcore(!hardcore)}
-                  className={`w-12 h-6 rounded-full transition-colors ${hardcore ? 'bg-red-500' : 'bg-gray-700'}`}>
-                  <div className={`w-5 h-5 bg-white rounded-full transition-transform mx-0.5 ${hardcore ? 'translate-x-6' : 'translate-x-0'}`} />
+                <button
+                  onClick={() => setHardcore(!hardcore)}
+                  style={{
+                    width: '3rem',
+                    height: '1.625rem',
+                    borderRadius: '9999px',
+                    background: hardcore ? 'rgba(239,68,68,0.8)' : 'var(--border)',
+                    border: `1px solid ${hardcore ? 'var(--red)' : '#3a3a50'}`,
+                    cursor: 'pointer',
+                    position: 'relative',
+                    flexShrink: 0,
+                    transition: 'background 0.2s, border-color 0.2s',
+                    boxShadow: hardcore ? '0 0 10px rgba(239,68,68,0.4)' : 'none',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '1.25rem',
+                      height: '1.25rem',
+                      background: '#fff',
+                      borderRadius: '50%',
+                      position: 'absolute',
+                      top: '50%',
+                      transform: `translateY(-50%) translateX(${hardcore ? '1.375rem' : '0.125rem'})`,
+                      transition: 'transform 0.2s',
+                    }}
+                  />
                 </button>
               </div>
 
-              {error && <p className="text-red-400 text-sm">{error}</p>}
+              {error && (
+                <p style={{ color: 'var(--red)', fontSize: '0.85rem' }}>{error}</p>
+              )}
 
-              <button onClick={handleCreate} disabled={loading}
-                className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-500 disabled:opacity-50 transition">
-                {loading ? '모험 준비 중...' : '⚔️ 모험 시작!'}
+              {/* Submit */}
+              <button
+                onClick={handleCreate}
+                disabled={loading}
+                className={loading ? 'btn-loading' : 'btn-gold-glow'}
+                style={{
+                  width: '100%',
+                  padding: '1rem',
+                  background: 'linear-gradient(135deg, #8a6820, #c9a84c, #8a6820)',
+                  color: '#0a0805',
+                  borderRadius: '0.875rem',
+                  fontWeight: 800,
+                  fontSize: '1.1rem',
+                  border: 'none',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  letterSpacing: '0.04em',
+                  opacity: loading ? 0.7 : 1,
+                  transition: 'opacity 0.2s',
+                }}
+              >
+                {loading ? '⏳ 모험 준비 중...' : '⚔️ 모험 시작!'}
               </button>
             </div>
           </>
