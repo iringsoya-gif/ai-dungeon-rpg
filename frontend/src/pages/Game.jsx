@@ -214,7 +214,7 @@ export default function Game() {
                         letterSpacing: '0.06em',
                       }}
                     >
-                      ▶ 플레이어
+                      ◈ 모험가
                     </span>
                     <p style={{ fontSize: '0.875rem', color: '#c8d8f0', whiteSpace: 'pre-wrap', lineHeight: 1.65 }}>
                       {h.content}
@@ -244,7 +244,7 @@ export default function Game() {
                         fontFamily: 'monospace',
                       }}
                     >
-                      ⚔ GM
+                      ✦ GAME MASTER
                     </span>
                     <p style={{ fontSize: '0.9rem', color: 'var(--text)', whiteSpace: 'pre-wrap', lineHeight: 1.8, fontStyle: 'italic' }}>
                       {h.content}

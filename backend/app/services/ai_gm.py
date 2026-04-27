@@ -1,10 +1,11 @@
 import json
-from anthropic import Anthropic
+from anthropic import Anthropic, AsyncAnthropic
 from app.core.config import ANTHROPIC_API_KEY
 from app.services.context_manager import context_mgr, estimate_tokens
 from app.services.state_manager import parse_state_changes, apply_state_changes, apply_death_penalty
 
-client = Anthropic(api_key=ANTHROPIC_API_KEY)
+client       = Anthropic(api_key=ANTHROPIC_API_KEY)
+async_client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 
 HARDCORE_ON_INST  = "- 하드코어 모드: HP가 0이 되면 반드시 game_over를 true로 설정하세요."
 HARDCORE_OFF_INST = "- 일반 모드: HP가 0이 되면 game_over는 false를 유지하세요. 패널티는 서버가 처리합니다."
@@ -87,13 +88,13 @@ async def stream_action(game, histories: list, player_input: str):
 
     full_response = ""
 
-    with client.messages.stream(
+    async with async_client.messages.stream(
         model="claude-sonnet-4-6",
         max_tokens=1024,
         system=system,
         messages=messages,
     ) as stream:
-        for text in stream.text_stream:
+        async for text in stream.text_stream:
             full_response += text
             yield ("text", text)
 
@@ -118,15 +119,23 @@ JSON 블록은 포함하지 마세요.
 
 
 def generate_opening(world_description: str, character_name: str, character_class: str, character_background: str) -> str:
-    prompt = OPENING_PROMPT.format(
-        world_description=world_description,
-        character_name=character_name,
-        character_class=character_class,
-        character_background=character_background,
-    )
-    response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=512,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return response.content[0].text
+    try:
+        prompt = OPENING_PROMPT.format(
+            world_description=world_description,
+            character_name=character_name,
+            character_class=character_class,
+            character_background=character_background,
+        )
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=512,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.content[0].text
+    except Exception:
+        return (
+            f"당신은 {character_name}입니다. {character_class} 출신의 용사로, "
+            f"{character_background}\n\n"
+            f"낯선 땅에 발을 내딛는 순간, 운명의 바퀴가 돌기 시작합니다. "
+            f"무엇을 하시겠습니까?"
+        )
