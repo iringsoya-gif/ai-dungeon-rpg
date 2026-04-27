@@ -50,13 +50,32 @@ def _build_initial_world(description: str) -> dict:
 
 
 CLASS_STATS = {
-    "전사":  {"strength": 16, "intelligence": 6,  "agility": 10, "charisma": 8,  "hp": 120, "max_hp": 120, "mp": 40,  "max_mp": 40},
-    "마법사": {"strength": 6,  "intelligence": 16, "agility": 8,  "charisma": 10, "hp": 60,  "max_hp": 60,  "mp": 160, "max_mp": 160},
-    "도적":  {"strength": 10, "intelligence": 10, "agility": 16, "charisma": 8,  "hp": 80,  "max_hp": 80,  "mp": 60,  "max_mp": 60},
-    "성직자": {"strength": 8,  "intelligence": 12, "agility": 8,  "charisma": 16, "hp": 90,  "max_hp": 90,  "mp": 120, "max_mp": 120},
-    "궁수":  {"strength": 12, "intelligence": 8,  "agility": 14, "charisma": 10, "hp": 90,  "max_hp": 90,  "mp": 60,  "max_mp": 60},
+    # 판타지
+    "전사":      {"strength": 16, "intelligence": 6,  "agility": 8,  "charisma": 8,  "hp": 120, "max_hp": 120, "mp": 40,  "max_mp": 40},
+    "마법사":    {"strength": 6,  "intelligence": 16, "agility": 8,  "charisma": 10, "hp": 60,  "max_hp": 60,  "mp": 160, "max_mp": 160},
+    "도적":      {"strength": 10, "intelligence": 10, "agility": 16, "charisma": 8,  "hp": 80,  "max_hp": 80,  "mp": 60,  "max_mp": 60},
+    "성직자":    {"strength": 8,  "intelligence": 12, "agility": 8,  "charisma": 16, "hp": 90,  "max_hp": 90,  "mp": 120, "max_mp": 120},
+    "궁수":      {"strength": 12, "intelligence": 8,  "agility": 14, "charisma": 10, "hp": 90,  "max_hp": 90,  "mp": 60,  "max_mp": 60},
+    # SF
+    "전투병":    {"strength": 16, "intelligence": 6,  "agility": 8,  "charisma": 8,  "hp": 120, "max_hp": 120, "mp": 40,  "max_mp": 40},
+    "해커":      {"strength": 6,  "intelligence": 16, "agility": 10, "charisma": 8,  "hp": 60,  "max_hp": 60,  "mp": 160, "max_mp": 160},
+    "의무관":    {"strength": 8,  "intelligence": 12, "agility": 8,  "charisma": 16, "hp": 90,  "max_hp": 90,  "mp": 120, "max_mp": 120},
+    "정찰병":    {"strength": 10, "intelligence": 10, "agility": 16, "charisma": 8,  "hp": 80,  "max_hp": 80,  "mp": 60,  "max_mp": 60},
+    "엔지니어":  {"strength": 10, "intelligence": 14, "agility": 10, "charisma": 10, "hp": 80,  "max_hp": 80,  "mp": 100, "max_mp": 100},
+    # 공포
+    "탐정":      {"strength": 8,  "intelligence": 16, "agility": 8,  "charisma": 12, "hp": 70,  "max_hp": 70,  "mp": 100, "max_mp": 100},
+    "오컬티스트": {"strength": 6,  "intelligence": 14, "agility": 8,  "charisma": 16, "hp": 60,  "max_hp": 60,  "mp": 160, "max_mp": 160},
+    "생존자":    {"strength": 14, "intelligence": 8,  "agility": 12, "charisma": 6,  "hp": 110, "max_hp": 110, "mp": 40,  "max_mp": 40},
+    "의사":      {"strength": 8,  "intelligence": 14, "agility": 8,  "charisma": 12, "hp": 80,  "max_hp": 80,  "mp": 120, "max_mp": 120},
+    "저널리스트": {"strength": 6,  "intelligence": 12, "agility": 10, "charisma": 16, "hp": 70,  "max_hp": 70,  "mp": 80,  "max_mp": 80},
+    # 현대
+    "군인":      {"strength": 16, "intelligence": 8,  "agility": 10, "charisma": 8,  "hp": 120, "max_hp": 120, "mp": 40,  "max_mp": 40},
+    "형사":      {"strength": 10, "intelligence": 14, "agility": 8,  "charisma": 12, "hp": 80,  "max_hp": 80,  "mp": 80,  "max_mp": 80},
+    "사이버해커": {"strength": 6,  "intelligence": 16, "agility": 10, "charisma": 8,  "hp": 60,  "max_hp": 60,  "mp": 160, "max_mp": 160},
+    "특수요원":  {"strength": 12, "intelligence": 10, "agility": 14, "charisma": 8,  "hp": 100, "max_hp": 100, "mp": 60,  "max_mp": 60},
+    "운동선수":  {"strength": 14, "intelligence": 8,  "agility": 16, "charisma": 6,  "hp": 100, "max_hp": 100, "mp": 40,  "max_mp": 40},
 }
-DEFAULT_STATS = {"strength": 8, "intelligence": 8, "agility": 8, "charisma": 8, "hp": 80, "max_hp": 80, "mp": 100, "max_mp": 100}
+DEFAULT_STATS = {"strength": 10, "intelligence": 10, "agility": 10, "charisma": 10, "hp": 90, "max_hp": 90, "mp": 90, "max_mp": 90}
 
 
 def _build_initial_character(name: str, char_class: str, background: str) -> dict:
