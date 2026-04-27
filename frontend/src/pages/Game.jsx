@@ -7,6 +7,10 @@ import StreamText from '../components/ui/StreamText'
 import StatusPanel from '../components/game/StatusPanel'
 import CharacterSheet from '../components/game/CharacterSheet'
 
+function stripJson(text) {
+  return text.replace(/```json[\s\S]*?```/g, '').trim()
+}
+
 export default function Game() {
   const { id }    = useParams()
   const navigate  = useNavigate()
@@ -247,7 +251,7 @@ export default function Game() {
                       ✦ GAME MASTER
                     </span>
                     <p style={{ fontSize: '0.9rem', color: 'var(--text)', whiteSpace: 'pre-wrap', lineHeight: 1.8, fontStyle: 'italic' }}>
-                      {h.content}
+                      {stripJson(h.content)}
                     </p>
                   </div>
                 )}
@@ -282,7 +286,7 @@ export default function Game() {
                     ⚔ GM
                   </span>
                   <div style={{ fontSize: '0.9rem', color: 'var(--text)', lineHeight: 1.8, fontStyle: 'italic' }}>
-                    <StreamText text={streamText} isStreaming={true} />
+                    <StreamText text={stripJson(streamText)} isStreaming={true} />
                     <span className="cursor-blink" />
                   </div>
                 </div>
