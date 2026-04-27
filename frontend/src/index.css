@@ -18,7 +18,7 @@
 html, body, #root {
   background-color: var(--bg);
   color: var(--text);
-  font-family: 'Georgia', serif;
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
 }
 
 /* Scrollbar */
