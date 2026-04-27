@@ -24,310 +24,216 @@ export default function Dashboard() {
   const canCreate = user?.plan === 'paid' || games.filter(g => g.status === 'active').length < 1
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', color: 'var(--text)' }}>
 
       {/* Header */}
-      <header
-        style={{
-          background: 'var(--surface)',
-          borderBottom: '1px solid var(--border)',
-          padding: '0.875rem 1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-        }}
-      >
-        <span style={{ fontSize: '1.25rem', filter: 'drop-shadow(0 0 8px rgba(201,168,76,0.5))' }}>⚔️</span>
-        <h1
-          style={{
-            fontWeight: 800,
-            fontSize: '1.1rem',
-            color: 'var(--gold-light)',
-            letterSpacing: '0.05em',
-          }}
-        >
-          AI Dungeon RPG
-        </h1>
+      <header style={{
+        background: 'rgba(10,10,16,0.95)',
+        borderBottom: '1px solid var(--border)',
+        padding: '0.75rem 1.5rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem',
+        backdropFilter: 'blur(12px)',
+        position: 'sticky', top: 0, zIndex: 10,
+      }}>
+        <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text)', letterSpacing: '0.03em' }}>
+          ⚔ AI Dungeon RPG
+        </span>
+
         {user?.plan === 'paid' && (
-          <span
-            style={{
-              fontSize: '0.7rem',
-              background: 'rgba(201,168,76,0.1)',
-              border: '1px solid rgba(201,168,76,0.35)',
-              color: 'var(--gold)',
-              padding: '0.2rem 0.6rem',
-              borderRadius: '9999px',
-              letterSpacing: '0.05em',
-            }}
-          >
-            👑 영웅
+          <span style={{
+            fontSize: '0.65rem', color: 'var(--purple)',
+            border: '1px solid rgba(157,127,232,0.3)',
+            padding: '0.15rem 0.5rem', borderRadius: '9999px',
+            background: 'rgba(157,127,232,0.08)',
+          }}>
+            PRO
           </span>
         )}
-        <div className="ml-auto flex items-center gap-3">
+
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {user?.picture && (
             <img
               src={user.picture}
-              className="rounded-full"
-              style={{ width: '2rem', height: '2rem', border: '1px solid var(--border)' }}
+              style={{ width: '1.75rem', height: '1.75rem', borderRadius: '50%', border: '1px solid var(--border2)' }}
               alt=""
             />
           )}
-          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>{user?.name}</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{user?.name}</span>
           <button
             onClick={handleLogout}
             style={{
-              fontSize: '0.75rem',
-              color: 'var(--muted)',
-              border: '1px solid var(--border)',
-              borderRadius: '0.5rem',
-              padding: '0.3rem 0.75rem',
-              background: 'transparent',
-              cursor: 'pointer',
+              fontSize: '0.75rem', color: 'var(--muted)',
+              border: '1px solid var(--border)', borderRadius: '0.5rem',
+              padding: '0.275rem 0.7rem', background: 'transparent', cursor: 'pointer',
               transition: 'color 0.2s, border-color 0.2s',
             }}
-            onMouseEnter={e => {
-              e.currentTarget.style.color = 'var(--text)'
-              e.currentTarget.style.borderColor = '#4a4a60'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.color = 'var(--muted)'
-              e.currentTarget.style.borderColor = 'var(--border)'
-            }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
           >
             로그아웃
           </button>
         </div>
       </header>
 
-      {/* Main content */}
-      <main style={{ maxWidth: '48rem', margin: '0 auto', padding: '2.5rem 1.5rem', width: '100%' }}>
+      {/* Main */}
+      <main style={{ maxWidth: '42rem', margin: '0 auto', padding: '2rem 1.25rem', width: '100%', flex: 1 }}>
 
-        <div className="flex items-center justify-between mb-6">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
           <div>
-            <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text)' }}>내 모험</h2>
-            <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.2rem' }}>
-              {games.length}개의 이야기
-            </p>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text)' }}>내 모험</h2>
+            <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.15rem' }}>{games.length}개의 이야기</p>
           </div>
           {canCreate ? (
             <Link
               to="/new-game"
-              className="btn-gold-glow"
               style={{
-                padding: '0.625rem 1.25rem',
-                background: 'linear-gradient(135deg, #8a6820, var(--gold), #8a6820)',
-                color: '#0a0805',
-                borderRadius: '0.75rem',
-                fontWeight: 800,
-                fontSize: '0.875rem',
+                padding: '0.5rem 1.125rem',
+                background: 'linear-gradient(135deg, #6a3fa0, var(--purple))',
+                color: '#fff',
+                borderRadius: '9999px',
+                fontWeight: 700,
+                fontSize: '0.8rem',
                 textDecoration: 'none',
-                border: 'none',
-                letterSpacing: '0.02em',
+                boxShadow: '0 0 16px rgba(157,127,232,0.2)',
+                transition: 'box-shadow 0.2s',
               }}
+              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 24px rgba(157,127,232,0.35)'}
+              onMouseLeave={e => e.currentTarget.style.boxShadow = '0 0 16px rgba(157,127,232,0.2)'}
             >
-              + 새 모험 시작
+              + 새 모험
             </Link>
           ) : (
             <Link
               to="/pricing"
               style={{
-                padding: '0.625rem 1.25rem',
-                background: 'var(--surface2)',
-                color: 'var(--gold)',
-                border: '1px solid rgba(201,168,76,0.35)',
-                borderRadius: '0.75rem',
-                fontWeight: 700,
-                fontSize: '0.875rem',
+                padding: '0.5rem 1.125rem',
+                background: 'var(--surface)',
+                color: 'var(--text-dim)',
+                border: '1px solid var(--border2)',
+                borderRadius: '9999px',
+                fontWeight: 600,
+                fontSize: '0.8rem',
                 textDecoration: 'none',
-                transition: 'background 0.2s',
+                transition: 'border-color 0.2s',
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(201,168,76,0.08)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'var(--surface2)'}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(157,127,232,0.4)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border2)'}
             >
-              🔒 업그레이드
+              업그레이드
             </Link>
           )}
         </div>
 
-        {/* Decorative line */}
-        <div style={{ height: '1px', background: 'linear-gradient(to right, var(--border), transparent)', marginBottom: '1.5rem' }} />
-
         {games.length === 0 ? (
-          <div className="text-center" style={{ paddingTop: '5rem', paddingBottom: '5rem' }}>
-            <div
-              style={{ fontSize: '4rem', marginBottom: '1.25rem', filter: 'grayscale(0.3) opacity(0.5)' }}
-            >
-              🗺️
-            </div>
-            <p style={{ color: 'var(--muted)', fontSize: '1rem', marginBottom: '0.5rem' }}>
-              아직 모험이 없습니다
-            </p>
-            <p style={{ color: '#4a4a5a', fontSize: '0.85rem', marginBottom: '2rem' }}>
-              새 모험을 시작하여 전설을 써내려가세요
-            </p>
+          <div style={{ textAlign: 'center', padding: '5rem 1rem' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '1rem', opacity: 0.4 }}>◈</div>
+            <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem', marginBottom: '0.4rem' }}>아직 모험이 없습니다</p>
+            <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginBottom: '2rem' }}>새 모험을 시작하여 전설을 써내려가세요</p>
             {canCreate && (
               <Link
                 to="/new-game"
-                className="btn-gold-glow"
                 style={{
                   display: 'inline-block',
-                  padding: '0.75rem 2rem',
-                  background: 'linear-gradient(135deg, #8a6820, var(--gold), #8a6820)',
-                  color: '#0a0805',
-                  borderRadius: '0.875rem',
-                  fontWeight: 800,
-                  fontSize: '1rem',
+                  padding: '0.625rem 1.75rem',
+                  background: 'linear-gradient(135deg, #6a3fa0, var(--purple))',
+                  color: '#fff',
+                  borderRadius: '9999px',
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
                   textDecoration: 'none',
                 }}
               >
-                ⚔️ 첫 모험 시작하기
+                첫 모험 시작하기
               </Link>
             )}
           </div>
         ) : (
-          <div style={{ display: 'grid', gap: '0.875rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
             {games.map(game => {
-              const isActive = game.status === 'active'
-              const isDead   = game.status === 'dead'
+              const isActive    = game.status === 'active'
+              const isDead      = game.status === 'dead'
+              const isCompleted = game.status === 'completed'
               return (
                 <div
                   key={game.id}
                   style={{
                     background: 'var(--surface)',
-                    border: `1px solid ${isActive ? 'var(--border)' : '#1e1e28'}`,
-                    borderRadius: '1rem',
-                    padding: '1.25rem 1.5rem',
+                    border: `1px solid ${isActive ? 'var(--border2)' : 'var(--border)'}`,
+                    borderRadius: '0.875rem',
+                    padding: '1rem 1.125rem',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '1rem',
-                    transition: 'border-color 0.25s, box-shadow 0.25s',
+                    gap: '0.875rem',
+                    transition: 'border-color 0.2s',
+                    opacity: isDead || isCompleted ? 0.65 : 1,
                   }}
-                  onMouseEnter={e => {
-                    if (isActive) {
-                      e.currentTarget.style.borderColor = 'rgba(201,168,76,0.35)'
-                      e.currentTarget.style.boxShadow = '0 0 16px rgba(201,168,76,0.07)'
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = isActive ? 'var(--border)' : '#1e1e28'
-                    e.currentTarget.style.boxShadow = 'none'
-                  }}
+                  onMouseEnter={e => { if (isActive) e.currentTarget.style.borderColor = 'rgba(157,127,232,0.35)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = isActive ? 'var(--border2)' : 'var(--border)' }}
                 >
                   {/* Status dot */}
-                  <div
-                    style={{
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      flexShrink: 0,
-                      background: isDead ? 'var(--red)' : isActive ? 'var(--emerald)' : 'var(--muted)',
-                      boxShadow: isDead
-                        ? '0 0 8px rgba(239,68,68,0.5)'
-                        : isActive
-                        ? '0 0 8px rgba(16,185,129,0.5)'
-                        : 'none',
-                    }}
-                  />
+                  <div style={{
+                    width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0,
+                    background: isDead ? 'var(--red)' : isCompleted ? 'var(--muted)' : 'var(--emerald)',
+                    boxShadow: isActive ? '0 0 6px rgba(16,185,129,0.5)' : 'none',
+                  }} />
 
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <h3 style={{ fontWeight: 700, fontSize: '0.95rem', color: isActive ? 'var(--text)' : 'var(--muted)' }}>
-                        {game.title}
-                      </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text)' }}>{game.title}</span>
                       {game.hardcore_mode && (
-                        <span
-                          style={{
-                            fontSize: '0.65rem',
-                            color: 'var(--red)',
-                            border: '1px solid rgba(239,68,68,0.35)',
-                            padding: '0.1rem 0.5rem',
-                            borderRadius: '9999px',
-                          }}
-                        >
-                          하드코어
-                        </span>
+                        <span style={{
+                          fontSize: '0.6rem', color: 'var(--red)',
+                          border: '1px solid rgba(239,68,68,0.3)',
+                          padding: '0.1rem 0.4rem', borderRadius: '9999px',
+                        }}>HC</span>
                       )}
                       {isDead && (
-                        <span
-                          style={{
-                            fontSize: '0.65rem',
-                            color: 'var(--muted)',
-                            border: '1px solid var(--border)',
-                            padding: '0.1rem 0.5rem',
-                            borderRadius: '9999px',
-                          }}
-                        >
-                          💀 사망
-                        </span>
+                        <span style={{ fontSize: '0.6rem', color: 'var(--muted)', border: '1px solid var(--border)', padding: '0.1rem 0.4rem', borderRadius: '9999px' }}>사망</span>
+                      )}
+                      {isCompleted && (
+                        <span style={{ fontSize: '0.6rem', color: 'var(--muted)', border: '1px solid var(--border)', padding: '0.1rem 0.4rem', borderRadius: '9999px' }}>완료</span>
                       )}
                     </div>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                      {game.character?.name} · {game.character?.class} ·{' '}
-                      <span style={{ fontFamily: 'monospace' }}>{game.turn_count}</span>턴
+                    <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                      {game.character?.name} · {game.character?.class} · <span style={{ fontFamily: 'monospace' }}>{game.turn_count}</span>턴
                     </p>
                   </div>
 
-                  <div className="flex gap-2 flex-shrink-0">
-                    {isActive && (
-                      <button
-                        onClick={() => navigate(`/game/${game.id}`)}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          background: 'rgba(16,185,129,0.15)',
-                          color: 'var(--emerald)',
-                          border: '1px solid rgba(16,185,129,0.35)',
-                          borderRadius: '0.625rem',
-                          fontSize: '0.8rem',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          transition: 'background 0.2s',
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(16,185,129,0.25)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(16,185,129,0.15)'}
-                      >
-                        계속하기
-                      </button>
-                    )}
-                    {!isActive && (
-                      <button
-                        onClick={() => navigate(`/game/${game.id}`)}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          background: 'var(--surface2)',
-                          color: 'var(--muted)',
-                          border: '1px solid var(--border)',
-                          borderRadius: '0.625rem',
-                          fontSize: '0.8rem',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          transition: 'background 0.2s',
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = '#222230'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'var(--surface2)'}
-                      >
-                        보기
-                      </button>
-                    )}
+                  <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                    <button
+                      onClick={() => navigate(`/game/${game.id}`)}
+                      style={{
+                        padding: '0.4rem 0.875rem',
+                        background: isActive ? 'rgba(157,127,232,0.12)' : 'var(--surface2)',
+                        color: isActive ? 'var(--purple)' : 'var(--muted)',
+                        border: `1px solid ${isActive ? 'rgba(157,127,232,0.3)' : 'var(--border)'}`,
+                        borderRadius: '0.5rem',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'background 0.2s',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = isActive ? 'rgba(157,127,232,0.2)' : '#1e1e2e'}
+                      onMouseLeave={e => e.currentTarget.style.background = isActive ? 'rgba(157,127,232,0.12)' : 'var(--surface2)'}
+                    >
+                      {isActive ? '계속' : '보기'}
+                    </button>
                     <button
                       onClick={() => handleDelete(game.id)}
                       style={{
-                        padding: '0.5rem 0.875rem',
+                        padding: '0.4rem 0.75rem',
                         background: 'transparent',
-                        color: '#4a4a5a',
+                        color: 'var(--muted)',
                         border: '1px solid var(--border)',
-                        borderRadius: '0.625rem',
-                        fontSize: '0.8rem',
+                        borderRadius: '0.5rem',
+                        fontSize: '0.75rem',
                         cursor: 'pointer',
                         transition: 'color 0.2s, border-color 0.2s',
                       }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.color = 'var(--red)'
-                        e.currentTarget.style.borderColor = 'rgba(239,68,68,0.35)'
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.color = '#4a4a5a'
-                        e.currentTarget.style.borderColor = 'var(--border)'
-                      }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--red)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
                     >
                       삭제
                     </button>
