@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
 import { api } from '../lib/api'
 import { useStream } from '../hooks/useStream'
+import { useBGM } from '../hooks/useBGM'
 import StreamText from '../components/ui/StreamText'
 import StatusPanel from '../components/game/StatusPanel'
 import CharacterSheet from '../components/game/CharacterSheet'
@@ -32,6 +33,8 @@ export default function Game() {
   const navigate  = useNavigate()
   const { game, histories, streamText, setGame } = useGameStore()
   const { streaming, streamError, sendAction, cancel } = useStream()
+  const { enabled: bgmEnabled, toggle: bgmToggle, start: bgmStart, setMood } = useBGM()
+  const bgmStarted = useRef(false)
   const [input, setInput]       = useState('')
   const [showSheet, setShowSheet]   = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
@@ -47,9 +50,21 @@ export default function Game() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [histories, streamText])
 
+  // BGM mood: switch by battle state
+  useEffect(() => {
+    if (!bgmStarted.current || !game?.character) return
+    if (isDead) { setMood('gameover'); return }
+    setMood(game.character.in_battle ? 'battle' : 'calm')
+  }, [game?.character?.in_battle, isDead, setMood])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!input.trim() || streaming) return
+    // Start BGM on first user interaction (autoplay policy)
+    if (!bgmStarted.current) {
+      bgmStarted.current = true
+      bgmStart(game?.character?.in_battle ? 'battle' : 'calm')
+    }
     const text = input.trim()
     setInput('')
     await sendAction(id, text)
@@ -103,6 +118,23 @@ export default function Game() {
         <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#3a3a50', fontFamily: 'monospace' }}>
           T-{game.turn_count}
         </span>
+
+        {/* BGM toggle */}
+        <button
+          onClick={bgmToggle}
+          title={bgmEnabled ? 'BGM 끄기' : 'BGM 켜기'}
+          style={{
+            fontSize: '0.85rem',
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: bgmEnabled ? '#9d7fe8' : '#3a3a50',
+            padding: '0.1rem 0.2rem',
+            transition: 'color 0.2s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = bgmEnabled ? '#c0a0ff' : '#5a5a70'}
+          onMouseLeave={e => e.currentTarget.style.color = bgmEnabled ? '#9d7fe8' : '#3a3a50'}
+        >
+          {bgmEnabled ? '♪' : '♩'}
+        </button>
 
         {!isDead && (
           <button
