@@ -251,7 +251,15 @@ async def take_action(
 
         yield f"data: {json.dumps({'done': True, 'state': state_changes, 'character': character, 'game_status': game.status})}\n\n"
 
-    return StreamingResponse(generate(), media_type="text/event-stream")
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.post("/{game_id}/complete")
