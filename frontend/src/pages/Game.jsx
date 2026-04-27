@@ -40,6 +40,9 @@ export default function Game() {
   const [showSidebar, setShowSidebar] = useState(false)
   const bottomRef = useRef(null)
 
+  // 훅보다 먼저 정의해야 TDZ 에러 없음 (game은 null일 수 있으므로 optional chaining)
+  const isDead = game?.status === 'dead' || game?.status === 'completed'
+
   useEffect(() => () => cancel(), [])
 
   useEffect(() => {
@@ -78,8 +81,6 @@ export default function Game() {
       </div>
     </div>
   )
-
-  const isDead = game.status === 'dead' || game.status === 'completed'
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#0a0a10' }}>
