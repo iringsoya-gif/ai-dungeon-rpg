@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.models.user import User
 from app.models.game import Game
 from app.models.history import History
-from app.services.ai_gm import stream_action, client as ai_client, generate_opening
+from app.services.ai_gm import stream_action, client as ai_client, generate_opening  # ai_client = Groq sync client
 from app.services.context_manager import context_mgr, estimate_tokens
 from app.services.state_manager import apply_state_changes, apply_death_penalty
 

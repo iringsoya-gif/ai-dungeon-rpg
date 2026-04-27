@@ -14,9 +14,11 @@ TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine_tes
 @pytest.fixture(autouse=True)
 def mock_ai_opening():
     """모든 테스트에서 generate_opening을 자동 모킹 — 실제 API 호출 방지"""
-    mock_msg = MagicMock()
-    mock_msg.content = [MagicMock(text="테스트 오프닝 텍스트입니다.")]
-    with patch("app.services.ai_gm.client.messages.create", return_value=mock_msg):
+    mock_choice = MagicMock()
+    mock_choice.message.content = "테스트 오프닝 텍스트입니다."
+    mock_resp = MagicMock()
+    mock_resp.choices = [mock_choice]
+    with patch("app.services.ai_gm.client.chat.completions.create", return_value=mock_resp):
         yield
 
 

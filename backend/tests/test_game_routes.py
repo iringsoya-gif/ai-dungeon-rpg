@@ -95,11 +95,17 @@ def test_cannot_access_other_users_game(client, db):
 from unittest.mock import patch, MagicMock
 
 
+def _mock_groq_resp(text):
+    mock_choice = MagicMock()
+    mock_choice.message.content = text
+    mock_resp = MagicMock()
+    mock_resp.choices = [mock_choice]
+    return mock_resp
+
+
 def test_create_game_has_opening(client, db):
     user = make_user(db)
-    mock_msg = MagicMock()
-    mock_msg.content = [MagicMock(text="어둠 속에서 당신의 모험이 시작됩니다...")]
-    with patch("app.services.ai_gm.client.messages.create", return_value=mock_msg):
+    with patch("app.services.ai_gm.client.chat.completions.create", return_value=_mock_groq_resp("어둠 속에서 당신의 모험이 시작됩니다...")):
         res = client.post("/api/v1/games", json=GAME_PAYLOAD, headers=auth_header(user))
     assert res.status_code == 201
     data = res.json()
@@ -109,9 +115,7 @@ def test_create_game_has_opening(client, db):
 
 def test_complete_game(client, db):
     user = make_user(db)
-    mock_msg = MagicMock()
-    mock_msg.content = [MagicMock(text="오프닝 텍스트")]
-    with patch("app.services.ai_gm.client.messages.create", return_value=mock_msg):
+    with patch("app.services.ai_gm.client.chat.completions.create", return_value=_mock_groq_resp("오프닝 텍스트")):
         create_res = client.post("/api/v1/games", json=GAME_PAYLOAD, headers=auth_header(user))
     game_id = create_res.json()["id"]
     res = client.post(f"/api/v1/games/{game_id}/complete", headers=auth_header(user))
@@ -125,9 +129,7 @@ def test_complete_game(client, db):
 
 def test_complete_game_twice_fails(client, db):
     user = make_user(db)
-    mock_msg = MagicMock()
-    mock_msg.content = [MagicMock(text="오프닝")]
-    with patch("app.services.ai_gm.client.messages.create", return_value=mock_msg):
+    with patch("app.services.ai_gm.client.chat.completions.create", return_value=_mock_groq_resp("오프닝")):
         create_res = client.post("/api/v1/games", json=GAME_PAYLOAD, headers=auth_header(user))
     game_id = create_res.json()["id"]
     client.post(f"/api/v1/games/{game_id}/complete", headers=auth_header(user))

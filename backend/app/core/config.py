@@ -9,7 +9,7 @@ GOOGLE_REDIRECT_URI  = os.getenv("GOOGLE_REDIRECT_URI")
 FRONTEND_URL         = os.getenv("FRONTEND_URL", "http://localhost:5173")
 SECRET_KEY           = os.getenv("SECRET_KEY")
 DATABASE_URL         = os.getenv("DATABASE_URL")
-ANTHROPIC_API_KEY    = os.getenv("ANTHROPIC_API_KEY")
+GROQ_API_KEY         = os.getenv("GROQ_API_KEY")
 
 POLAR_ACCESS_TOKEN   = os.getenv("POLAR_ACCESS_TOKEN")
 POLAR_PRODUCT_ID     = os.getenv("POLAR_PRODUCT_ID")

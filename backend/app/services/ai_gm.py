@@ -1,11 +1,14 @@
 import json
-from anthropic import Anthropic, AsyncAnthropic
-from app.core.config import ANTHROPIC_API_KEY
+from groq import Groq, AsyncGroq
+from app.core.config import GROQ_API_KEY
 from app.services.context_manager import context_mgr, estimate_tokens
 from app.services.state_manager import parse_state_changes, apply_state_changes, apply_death_penalty
 
-client       = Anthropic(api_key=ANTHROPIC_API_KEY)
-async_client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+client       = Groq(api_key=GROQ_API_KEY)
+async_client = AsyncGroq(api_key=GROQ_API_KEY)
+
+GM_MODEL      = "llama-3.3-70b-versatile"
+OPENING_MODEL = "llama-3.1-8b-instant"
 
 HARDCORE_ON_INST  = "- 하드코어 모드: HP가 0이 되면 반드시 game_over를 true로 설정하세요."
 HARDCORE_OFF_INST = "- 일반 모드: HP가 0이 되면 game_over는 false를 유지하세요. 패널티는 서버가 처리합니다."
@@ -81,21 +84,27 @@ async def stream_action(game, histories: list, player_input: str):
     SSE 제너레이터.
     - ("text", chunk_str) 를 스트리밍 중 yield
     - ("done", {...})  를 완료 시 yield
+    - ("error", str)   를 오류 시 yield
     """
     system   = build_system_prompt(game)
     messages = context_mgr.build_context(game, histories)
     messages.append({"role": "user", "content": player_input})
 
+    # Groq/OpenAI 형식: system은 messages 배열 첫 번째 항목으로
+    groq_messages = [{"role": "system", "content": system}] + messages
+
     full_response = ""
 
     try:
-        async with async_client.messages.stream(
-            model="claude-sonnet-4-6",
+        stream = await async_client.chat.completions.create(
+            model=GM_MODEL,
+            messages=groq_messages,
             max_tokens=1024,
-            system=system,
-            messages=messages,
-        ) as stream:
-            async for text in stream.text_stream:
+            stream=True,
+        )
+        async for chunk in stream:
+            text = chunk.choices[0].delta.content or ""
+            if text:
                 full_response += text
                 yield ("text", text)
     except Exception as e:
@@ -130,12 +139,12 @@ def generate_opening(world_description: str, character_name: str, character_clas
             character_class=character_class,
             character_background=character_background,
         )
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+        response = client.chat.completions.create(
+            model=OPENING_MODEL,
             max_tokens=512,
             messages=[{"role": "user", "content": prompt}],
         )
-        return response.content[0].text
+        return response.choices[0].message.content
     except Exception:
         return (
             f"당신은 {character_name}입니다. {character_class} 출신의 용사로, "

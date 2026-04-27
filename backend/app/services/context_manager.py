@@ -46,12 +46,12 @@ class ContextManager:
         )
         summary_prompt = f"다음 RPG 게임 기록을 3~5문장으로 요약하세요:\n\n{old_content}"
 
-        response = ai_client.messages.create(
-            model="claude-sonnet-4-6",
+        response = ai_client.chat.completions.create(
+            model="llama-3.1-8b-instant",
             max_tokens=512,
             messages=[{"role": "user", "content": summary_prompt}],
         )
-        game.summary = response.content[0].text
+        game.summary = response.choices[0].message.content
         db.commit()
 
 
