@@ -141,6 +141,48 @@ async def verify_checkout(
     return {"plan": current_user.plan, "upgraded": False, "checkout_status": status, "polar_data": str(data)[:300]}
 
 
+@router.post("/sync")
+async def sync_plan(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Polar 주문 내역으로 플랜 동기화 (결제 후 플랜 미반영 시 수동 복구용)"""
+    if current_user.plan == "paid":
+        return {"plan": "paid", "upgraded": False}
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        res = await client.get(
+            f"{POLAR_API_URL}/orders/",
+            headers={"Authorization": f"Bearer {POLAR_ACCESS_TOKEN}"},
+            params={"customer_email": current_user.email, "product_id": POLAR_PRODUCT_ID},
+        )
+
+    if res.status_code != 200:
+        raise HTTPException(502, f"Polar 조회 실패: {res.text[:200]}")
+
+    orders = res.json().get("items", [])
+    paid_order = next(
+        (o for o in orders if o.get("status") in {"paid", "succeeded", "confirmed", "complete"}),
+        None,
+    )
+
+    if paid_order:
+        current_user.plan = "paid"
+        existing = db.query(Payment).filter(
+            Payment.polar_order_id == paid_order.get("id")
+        ).first()
+        if not existing:
+            db.add(Payment(
+                user_id=current_user.id,
+                polar_order_id=paid_order.get("id"),
+                status="paid",
+            ))
+        db.commit()
+        return {"plan": "paid", "upgraded": True}
+
+    return {"plan": "free", "upgraded": False, "orders_found": len(orders)}
+
+
 @router.get("/status")
 def payment_status(current_user: User = Depends(get_current_user)):
     return {"plan": current_user.plan, "is_paid": current_user.plan == "paid"}

@@ -5,15 +5,34 @@ import { api } from '../lib/api'
 
 export default function Dashboard() {
   const user     = useAuthStore(s => s.user)
+  const setUser  = useAuthStore(s => s.setUser)
   const logout   = useAuthStore(s => s.logout)
   const navigate = useNavigate()
-  const [games, setGames] = useState([])
+  const [games, setGames]     = useState([])
+  const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     api.listGames().then(setGames).catch(console.error)
   }, [])
 
   const handleLogout = () => { logout(); navigate('/') }
+
+  const handleSyncPlan = async () => {
+    setSyncing(true)
+    try {
+      const res = await api.syncPlan()
+      if (res.upgraded) {
+        const me = await api.getMe()
+        setUser(me)
+        alert('영웅 플랜이 활성화되었습니다!')
+      } else {
+        alert(`플랜 동기화 완료 (현재: ${res.plan})\n결제 내역이 확인되지 않았습니다.`)
+      }
+    } catch (e) {
+      alert('동기화 실패: ' + (e?.detail || String(e)))
+    }
+    setSyncing(false)
+  }
 
   const handleDelete = async (id) => {
     if (!confirm('이 게임을 삭제하시겠습니까?')) return
@@ -105,24 +124,44 @@ export default function Dashboard() {
               + 새 모험
             </Link>
           ) : (
-            <Link
-              to="/pricing"
-              style={{
-                padding: '0.5rem 1.125rem',
-                background: 'var(--surface)',
-                color: 'var(--text-dim)',
-                border: '1px solid var(--border2)',
-                borderRadius: '9999px',
-                fontWeight: 600,
-                fontSize: '0.8rem',
-                textDecoration: 'none',
-                transition: 'border-color 0.2s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(157,127,232,0.4)'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border2)'}
-            >
-              업그레이드
-            </Link>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                onClick={handleSyncPlan}
+                disabled={syncing}
+                title="결제했는데 반영 안 됐을 때"
+                style={{
+                  padding: '0.5rem 0.875rem',
+                  background: 'transparent',
+                  color: 'var(--muted)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '9999px',
+                  fontWeight: 600,
+                  fontSize: '0.75rem',
+                  cursor: syncing ? 'not-allowed' : 'pointer',
+                  opacity: syncing ? 0.6 : 1,
+                }}
+              >
+                {syncing ? '확인 중...' : '↻ 플랜 동기화'}
+              </button>
+              <Link
+                to="/pricing"
+                style={{
+                  padding: '0.5rem 1.125rem',
+                  background: 'var(--surface)',
+                  color: 'var(--text-dim)',
+                  border: '1px solid var(--border2)',
+                  borderRadius: '9999px',
+                  fontWeight: 600,
+                  fontSize: '0.8rem',
+                  textDecoration: 'none',
+                  transition: 'border-color 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(157,127,232,0.4)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border2)'}
+              >
+                업그레이드
+              </Link>
+            </div>
           )}
         </div>
 

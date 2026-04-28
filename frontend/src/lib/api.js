@@ -35,6 +35,7 @@ export const api = {
   // 결제
   checkout:       ()              => api.post('/payment/checkout').then(r => r.json()),
   verifyCheckout: (checkout_id)   => api.post('/payment/verify', { checkout_id }).then(r => r.json()),
+  syncPlan:       ()              => api.post('/payment/sync').then(r => r.json()),
   payStatus:      ()              => api.get('/payment/status').then(r => r.json()),
 }
 
