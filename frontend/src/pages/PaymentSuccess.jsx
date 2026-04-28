@@ -1,15 +1,22 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
 
 export default function PaymentSuccess() {
-  const navigate  = useNavigate()
-  const setUser   = useAuthStore(s => s.setUser)
+  const navigate      = useNavigate()
+  const setUser       = useAuthStore(s => s.setUser)
+  const [params]      = useSearchParams()
   const [seconds, setSeconds] = useState(4)
 
   useEffect(() => {
-    api.getMe().then(user => setUser(user)).catch(() => {})
+    const checkoutId = params.get('checkout_id')
+
+    const verify = checkoutId
+      ? api.verifyCheckout(checkoutId).catch(() => null)
+      : Promise.resolve(null)
+
+    verify.then(() => api.getMe()).then(user => setUser(user)).catch(() => {})
 
     const tick = setInterval(() => {
       setSeconds(s => {
@@ -18,7 +25,7 @@ export default function PaymentSuccess() {
       })
     }, 1000)
     return () => clearInterval(tick)
-  }, [navigate, setUser])
+  }, [navigate, setUser, params])
 
   return (
     <div style={{

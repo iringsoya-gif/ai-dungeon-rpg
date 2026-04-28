@@ -97,6 +97,48 @@ async def polar_webhook(request: Request, db: Session = Depends(get_db)):
     return {"status": "ok"}
 
 
+@router.post("/verify")
+async def verify_checkout(
+    body: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """결제 성공 페이지에서 checkout_id로 직접 검증 후 플랜 업그레이드"""
+    checkout_id = body.get("checkout_id")
+    if not checkout_id:
+        raise HTTPException(400, "checkout_id 없음")
+    if current_user.plan == "paid":
+        return {"plan": "paid", "upgraded": False}
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        res = await client.get(
+            f"{POLAR_API_URL}/checkouts/{checkout_id}",
+            headers={"Authorization": f"Bearer {POLAR_ACCESS_TOKEN}"},
+        )
+
+    if res.status_code != 200:
+        raise HTTPException(502, f"Polar 검증 실패: {res.text[:200]}")
+
+    data   = res.json()
+    status = data.get("status")
+
+    if status == "confirmed":
+        current_user.plan = "paid"
+        existing = db.query(Payment).filter(
+            Payment.polar_order_id == checkout_id
+        ).first()
+        if not existing:
+            db.add(Payment(
+                user_id=current_user.id,
+                polar_order_id=checkout_id,
+                status="paid",
+            ))
+        db.commit()
+        return {"plan": "paid", "upgraded": True}
+
+    return {"plan": current_user.plan, "upgraded": False, "checkout_status": status}
+
+
 @router.get("/status")
 def payment_status(current_user: User = Depends(get_current_user)):
     return {"plan": current_user.plan, "is_paid": current_user.plan == "paid"}
