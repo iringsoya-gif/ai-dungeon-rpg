@@ -10,10 +10,14 @@ export default function PaymentSuccess() {
   const [seconds, setSeconds] = useState(4)
 
   useEffect(() => {
-    const checkoutId = params.get('checkout_id')
+    // Polar는 checkout_id 또는 checkoutId 파라미터로 보낼 수 있음
+    const checkoutId = params.get('checkout_id') || params.get('checkoutId') || params.get('id')
 
     const verify = checkoutId
-      ? api.verifyCheckout(checkoutId).catch(() => null)
+      ? api.verifyCheckout(checkoutId).then(res => {
+          if (!res?.upgraded) console.warn('[PaymentSuccess] not upgraded:', res)
+          return res
+        }).catch(e => { console.error('[PaymentSuccess] verify error:', e); return null })
       : Promise.resolve(null)
 
     verify.then(() => api.getMe()).then(user => setUser(user)).catch(() => {})

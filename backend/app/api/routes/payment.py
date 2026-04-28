@@ -120,9 +120,10 @@ async def verify_checkout(
         raise HTTPException(502, f"Polar 검증 실패: {res.text[:200]}")
 
     data   = res.json()
-    status = data.get("status")
+    status = data.get("status", "")
 
-    if status == "confirmed":
+    PAID_STATUSES = {"confirmed", "succeeded", "paid", "complete", "completed"}
+    if status.lower() in PAID_STATUSES:
         current_user.plan = "paid"
         existing = db.query(Payment).filter(
             Payment.polar_order_id == checkout_id
@@ -136,7 +137,8 @@ async def verify_checkout(
         db.commit()
         return {"plan": "paid", "upgraded": True}
 
-    return {"plan": current_user.plan, "upgraded": False, "checkout_status": status}
+    # status를 클라이언트에 노출해 디버깅 가능하게
+    return {"plan": current_user.plan, "upgraded": False, "checkout_status": status, "polar_data": str(data)[:300]}
 
 
 @router.get("/status")
