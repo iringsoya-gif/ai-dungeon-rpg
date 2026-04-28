@@ -23,9 +23,14 @@ function renderPlayerMsg(text) {
   })
 }
 
-/* JSON 블록 제거 */
-function stripJson(text) {
-  return (text || '').replace(/```json[\s\S]*?```/g, '').trim()
+/* JSON 블록 제거 — streaming=true면 블록 시작부터 잘라냄 (닫는 ``` 미도달 대비) */
+function stripJson(text, streaming = false) {
+  if (!text) return ''
+  if (streaming) {
+    const idx = text.indexOf('```json')
+    return idx === -1 ? text : text.slice(0, idx).trimEnd()
+  }
+  return text.replace(/```json[\s\S]*?```/g, '').trim()
 }
 
 export default function Game() {
@@ -240,7 +245,7 @@ export default function Game() {
                       GAME MASTER
                     </span>
                     <div style={{ fontSize: '0.9rem', color: '#ddd8f0', lineHeight: 1.85, whiteSpace: 'pre-wrap' }}>
-                      <StreamText text={stripJson(streamText)} isStreaming={true} />
+                      <StreamText text={stripJson(streamText, true)} isStreaming={true} />
                       <span className="cursor-blink" />
                     </div>
                   </div>
