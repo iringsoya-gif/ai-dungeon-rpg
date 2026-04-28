@@ -3,6 +3,7 @@ from groq import Groq, AsyncGroq
 from app.core.config import GROQ_API_KEY
 from app.services.context_manager import context_mgr, estimate_tokens
 from app.services.state_manager import parse_state_changes, apply_state_changes, apply_death_penalty
+from app.services.text_sanitizer import sanitize_korean
 
 client       = Groq(api_key=GROQ_API_KEY)
 async_client = AsyncGroq(api_key=GROQ_API_KEY)
@@ -157,11 +158,12 @@ async def stream_action(game, histories: list, player_input: str):
             text = chunk.choices[0].delta.content or ""
             if text:
                 full_response += text
-                yield ("text", text)
+                yield ("text", sanitize_korean(text))
     except Exception as e:
         yield ("error", str(e))
         return
 
+    full_response = sanitize_korean(full_response)
     state_changes = parse_state_changes(full_response)
     token_count   = estimate_tokens(full_response)
 
