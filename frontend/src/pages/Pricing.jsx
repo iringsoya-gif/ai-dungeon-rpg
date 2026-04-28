@@ -23,8 +23,9 @@ export default function Pricing() {
     try {
       const { checkout_url } = await api.checkout()
       window.location.href = checkout_url
-    } catch {
-      alert('결제 페이지 이동 중 오류가 발생했습니다')
+    } catch (e) {
+      const msg = e?.detail || e?.message || JSON.stringify(e)
+      alert(`결제 페이지 이동 실패:\n${msg}`)
       setLoading(false)
     }
   }

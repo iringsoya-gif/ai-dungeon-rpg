@@ -23,7 +23,10 @@ async def create_checkout(
     if current_user.plan == "paid":
         raise HTTPException(400, "이미 결제하셨습니다")
 
-    async with httpx.AsyncClient() as client:
+    if not POLAR_ACCESS_TOKEN or not POLAR_PRODUCT_ID:
+        raise HTTPException(503, "결제 설정이 완료되지 않았습니다. 관리자에게 문의하세요.")
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
         res = await client.post(
             f"{POLAR_API_URL}/checkouts/",
             headers={
@@ -33,15 +36,22 @@ async def create_checkout(
             json={
                 "product_id":     POLAR_PRODUCT_ID,
                 "success_url":    f"{FRONTEND_URL}/payment/success",
-                "cancel_url":     f"{FRONTEND_URL}/pricing",
                 "customer_email": current_user.email,
                 "metadata":       {"user_id": str(current_user.id)},
             },
         )
+
+    if res.status_code not in (200, 201):
+        raise HTTPException(
+            502,
+            f"결제 페이지 생성 실패 (Polar {res.status_code}): {res.text[:300]}"
+        )
+
     data = res.json()
-    if res.status_code != 201:
-        raise HTTPException(500, f"Polar 결제 생성 실패: {data}")
-    return {"checkout_url": data["url"]}
+    checkout_url = data.get("url") or data.get("checkout_url")
+    if not checkout_url:
+        raise HTTPException(502, f"Polar 응답에 URL 없음: {data}")
+    return {"checkout_url": checkout_url}
 
 
 @router.post("/webhook")
