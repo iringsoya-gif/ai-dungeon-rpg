@@ -7,6 +7,7 @@ import NewGame from './pages/NewGame'
 import Game from './pages/Game'
 import GameOver from './pages/GameOver'
 import Pricing from './pages/Pricing'
+import PaymentSuccess from './pages/PaymentSuccess'
 import Callback from './pages/auth/Callback'
 
 function PrivateRoute({ children }) {
@@ -30,7 +31,7 @@ export default function App() {
         <Route path="/game/:id"       element={<PrivateRoute><Game /></PrivateRoute>} />
         <Route path="/games/:id/over" element={<PrivateRoute><GameOver /></PrivateRoute>} />
         <Route path="/pricing"        element={<Pricing />} />
-        <Route path="/payment/success" element={<PrivateRoute><div className="text-white p-8">결제 완료! 감사합니다 🎉</div></PrivateRoute>} />
+        <Route path="/payment/success" element={<PrivateRoute><PaymentSuccess /></PrivateRoute>} />
       </Routes>
     </BrowserRouter>
   )
