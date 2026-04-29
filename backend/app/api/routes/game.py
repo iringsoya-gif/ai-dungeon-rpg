@@ -256,18 +256,27 @@ async def take_action(
 
         # 캐릭터 상태 업데이트
         character = json.loads(game.character_json)
-        character = apply_state_changes(character, state_changes)
+        try:
+            character = apply_state_changes(character, state_changes)
+        except Exception:
+            pass  # 파싱 오류 시 원본 캐릭터 유지
 
         # 세계 상태 누적 (NPC·장소 메모리)
-        world = json.loads(game.world_json)
-        world = apply_world_changes(world, state_changes)
-        game.world_json = json.dumps(world, ensure_ascii=False)
+        try:
+            world = json.loads(game.world_json)
+            world = apply_world_changes(world, state_changes)
+            game.world_json = json.dumps(world, ensure_ascii=False)
+        except Exception:
+            pass
 
         # 게임오버 처리
         if state_changes.get("game_over") and game.hardcore_mode:
             game.status = "dead"
         elif character["stats"]["hp"] == 0 and not game.hardcore_mode:
-            character = apply_death_penalty(character)
+            try:
+                character = apply_death_penalty(character)
+            except Exception:
+                pass
 
         game.character_json = json.dumps(character, ensure_ascii=False)
         db.commit()

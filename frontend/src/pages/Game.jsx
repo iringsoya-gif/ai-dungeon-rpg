@@ -37,7 +37,7 @@ export default function Game() {
   const { id }    = useParams()
   const navigate  = useNavigate()
   const { game, histories, streamText, setGame } = useGameStore()
-  const { streaming, streamError, sendAction, cancel } = useStream()
+  const { streaming, streamError, lastAction, sendAction, retry, cancel } = useStream()
   const { enabled: bgmEnabled, toggle: bgmToggle, start: bgmStart, setMood } = useBGM()
   const bgmStarted = useRef(false)
   const [input, setInput]       = useState('')
@@ -234,7 +234,7 @@ export default function Game() {
                       <span style={{ fontSize: '0.6rem', color: '#5a4a80', letterSpacing: '0.1em', display: 'block', marginBottom: '0.5rem', fontFamily: 'monospace' }}>
                         GAME MASTER
                       </span>
-                      <p style={{ fontSize: '0.9rem', color: '#ddd8f0', lineHeight: 1.85, margin: 0, whiteSpace: 'pre-wrap' }}>
+                      <p style={{ fontSize: '0.9rem', color: '#ddd8f0', lineHeight: 1.95, margin: 0, whiteSpace: 'pre-wrap', fontFamily: "'Noto Serif KR', serif" }}>
                         {stripJson(h.content)}
                       </p>
                     </div>
@@ -261,7 +261,7 @@ export default function Game() {
                     <span style={{ fontSize: '0.6rem', color: '#5a4a80', letterSpacing: '0.1em', display: 'block', marginBottom: '0.5rem', fontFamily: 'monospace' }}>
                       GAME MASTER
                     </span>
-                    <div style={{ fontSize: '0.9rem', color: '#ddd8f0', lineHeight: 1.85, whiteSpace: 'pre-wrap' }}>
+                    <div style={{ fontSize: '0.9rem', color: '#ddd8f0', lineHeight: 1.95, whiteSpace: 'pre-wrap', fontFamily: "'Noto Serif KR', serif" }}>
                       <StreamText text={stripJson(streamText, true)} isStreaming={true} />
                       <span className="cursor-blink" />
                     </div>
@@ -269,14 +269,28 @@ export default function Game() {
                 </div>
               )}
 
-              {/* Error */}
+              {/* Error + retry */}
               {streamError && (
                 <div style={{
                   background: 'rgba(80,10,10,0.5)', border: '1px solid rgba(239,68,68,0.3)',
                   borderRadius: '0.75rem', padding: '0.75rem 1rem',
                   fontSize: '0.8rem', color: '#fca5a5',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem',
                 }}>
-                  ⚠ {streamError}
+                  <span>⚠ {streamError}</span>
+                  {lastAction && (
+                    <button
+                      onClick={retry}
+                      style={{
+                        flexShrink: 0, fontSize: '0.75rem', fontWeight: 700,
+                        color: '#fca5a5', background: 'rgba(239,68,68,0.15)',
+                        border: '1px solid rgba(239,68,68,0.4)', borderRadius: '0.5rem',
+                        padding: '0.25rem 0.7rem', cursor: 'pointer', whiteSpace: 'nowrap',
+                      }}
+                    >
+                      ↺ 다시 시도
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -319,7 +333,7 @@ export default function Game() {
                 <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.625rem' }}>
                   <input
                     value={input}
-                    onChange={e => setInput(e.target.value)}
+                    onChange={e => setInput(e.target.value.slice(0, 500))}
                     disabled={streaming}
                     placeholder={streaming ? 'GM이 서술하는 중...' : '행동이나 대사를 입력하세요'}
                     style={{
@@ -356,6 +370,13 @@ export default function Game() {
                     {streaming ? '⋯' : '↵'}
                   </button>
                 </form>
+
+                {/* 입력 길이 카운터 */}
+                {input.length > 400 && (
+                  <p style={{ textAlign: 'right', fontSize: '0.62rem', color: input.length >= 500 ? '#ef4444' : '#4a4a60', marginTop: '0.25rem' }}>
+                    {input.length}/500
+                  </p>
+                )}
 
                 {/* Format hint */}
                 {game.character?.in_battle ? (

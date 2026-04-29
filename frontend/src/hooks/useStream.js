@@ -5,10 +5,12 @@ import { API_URL, getToken } from '../lib/api'
 export function useStream() {
   const [streaming, setStreaming] = useState(false)
   const [streamError, setStreamError] = useState(null)
+  const [lastAction, setLastAction] = useState(null)
   const abortRef = useRef(null)
   const { appendStream, clearStream, updateCharacter, addHistory } = useGameStore()
 
   const sendAction = async (gameId, actionText) => {
+    setLastAction({ gameId, actionText })
     setStreaming(true)
     setStreamError(null)
     clearStream()
@@ -83,5 +85,9 @@ export function useStream() {
     abortRef.current?.abort()
   }
 
-  return { streaming, streamError, sendAction, cancel }
+  const retry = () => {
+    if (lastAction) sendAction(lastAction.gameId, lastAction.actionText)
+  }
+
+  return { streaming, streamError, lastAction, sendAction, retry, cancel }
 }

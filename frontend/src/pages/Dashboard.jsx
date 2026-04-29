@@ -8,8 +8,9 @@ export default function Dashboard() {
   const setUser  = useAuthStore(s => s.setUser)
   const logout   = useAuthStore(s => s.logout)
   const navigate = useNavigate()
-  const [games, setGames]     = useState([])
-  const [syncing, setSyncing] = useState(false)
+  const [games, setGames]       = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [syncing, setSyncing]   = useState(false)
   const [copiedId, setCopiedId] = useState(null)
 
   const copyStory = (id) => {
@@ -19,7 +20,10 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    api.listGames().then(setGames).catch(console.error)
+    api.listGames()
+      .then(setGames)
+      .catch(console.error)
+      .finally(() => setLoading(false))
   }, [])
 
   const handleLogout = () => { logout(); navigate('/') }
@@ -172,7 +176,24 @@ export default function Dashboard() {
           )}
         </div>
 
-        {games.length === 0 ? (
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+            {[1, 2, 3].map(i => (
+              <div key={i} style={{
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: '0.875rem', padding: '1rem 1.125rem',
+                display: 'flex', alignItems: 'center', gap: '0.875rem',
+              }}>
+                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--border2)', flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ height: '0.875rem', width: `${50 + i * 15}%`, background: 'var(--border2)', borderRadius: '0.25rem', marginBottom: '0.4rem', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                  <div style={{ height: '0.7rem', width: '40%', background: 'var(--border)', borderRadius: '0.25rem', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                </div>
+                <div style={{ width: '4rem', height: '2rem', background: 'var(--border)', borderRadius: '0.5rem', animation: 'pulse 1.5s ease-in-out infinite' }} />
+              </div>
+            ))}
+          </div>
+        ) : games.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '5rem 1rem' }}>
             <div style={{ fontSize: '2.5rem', marginBottom: '1rem', opacity: 0.4 }}>◈</div>
             <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem', marginBottom: '0.4rem' }}>아직 모험이 없습니다</p>

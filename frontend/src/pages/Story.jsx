@@ -86,7 +86,7 @@ export default function Story() {
           {histories.map((h, i) => (
             h.role === 'gm' ? (
               <div key={i}>
-                <p style={{ color: '#ddd8f0', fontSize: '0.92rem', lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>
+                <p style={{ color: '#ddd8f0', fontSize: '0.95rem', lineHeight: 2.0, whiteSpace: 'pre-wrap', fontFamily: "'Noto Serif KR', serif" }}>
                   {stripJson(h.content)}
                 </p>
               </div>
