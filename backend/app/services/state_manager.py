@@ -29,6 +29,17 @@ def _apply_level_up(c: dict) -> dict:
     return c
 
 
+def apply_world_changes(world: dict, changes: dict) -> dict:
+    """world_json에 GM의 world_changes 누적 적용 (NPC·장소 메모리)"""
+    w = copy.deepcopy(world)
+    wc = changes.get("world_changes", {})
+    if isinstance(wc.get("npcs"), dict):
+        w.setdefault("npcs", {}).update(wc["npcs"])
+    if isinstance(wc.get("locations"), dict):
+        w.setdefault("locations", {}).update(wc["locations"])
+    return w
+
+
 def apply_state_changes(character: dict, changes: dict) -> dict:
     """캐릭터 상태에 변화 적용. 원본을 수정하지 않고 복사본 반환"""
     c = copy.deepcopy(character)
@@ -53,10 +64,18 @@ def apply_state_changes(character: dict, changes: dict) -> dict:
         c["in_battle"] = sc["in_battle"]
     if "quest_add" in sc:
         for q in sc["quest_add"]:
-            if q not in c.get("quests", []):
+            if isinstance(q, dict):
+                name = q.get("name", "")
+                if name and name not in c.get("quests", []):
+                    c.setdefault("quests", []).append(name)
+                    c.setdefault("quest_details", {})[name] = q.get("desc", "")
+            elif isinstance(q, str) and q not in c.get("quests", []):
                 c.setdefault("quests", []).append(q)
     if "quest_remove" in sc:
-        c["quests"] = [q for q in c.get("quests", []) if q not in sc["quest_remove"]]
+        to_remove = [q["name"] if isinstance(q, dict) else q for q in sc["quest_remove"]]
+        c["quests"] = [q for q in c.get("quests", []) if q not in to_remove]
+        for name in to_remove:
+            c.get("quest_details", {}).pop(name, None)
     if "status_effects_add" in sc:
         c.setdefault("status_effects", []).extend(sc["status_effects_add"])
     if "status_effects_remove" in sc:

@@ -1,6 +1,6 @@
 export default function StatusPanel({ character, onOpenSheet }) {
   if (!character) return null
-  const { stats, inventory, quests, location, level, xp, xp_to_next, in_battle, status_effects } = character
+  const { stats, inventory, quests, quest_details, location, level, xp, xp_to_next, in_battle, status_effects } = character
   if (!stats) return null
 
   const hpPct = Math.max(0, Math.min(100, (stats.hp / (stats.max_hp || 1)) * 100))
@@ -218,11 +218,18 @@ export default function StatusPanel({ character, onOpenSheet }) {
           <p style={{ color: 'var(--muted)', marginBottom: '0.375rem', letterSpacing: '0.06em', fontSize: '0.65rem' }}>
             ◆ 퀘스트 ({quests.length})
           </p>
-          <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+          <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {quests.map((q, i) => (
-              <li key={i} style={{ color: 'var(--text)', display: 'flex', alignItems: 'flex-start', gap: '0.375rem', fontSize: '0.72rem' }}>
+              <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.375rem', fontSize: '0.72rem' }}>
                 <span style={{ color: 'var(--gold)', marginTop: '0.1rem', flexShrink: 0 }}>▸</span>
-                <span style={{ lineHeight: 1.4 }}>{q}</span>
+                <div>
+                  <span style={{ color: 'var(--text)', lineHeight: 1.4 }}>{q}</span>
+                  {quest_details?.[q] && (
+                    <p style={{ color: 'var(--muted)', fontSize: '0.65rem', marginTop: '0.15rem', lineHeight: 1.4 }}>
+                      {quest_details[q]}
+                    </p>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

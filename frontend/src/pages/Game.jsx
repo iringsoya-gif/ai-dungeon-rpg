@@ -43,6 +43,13 @@ export default function Game() {
   const [input, setInput]       = useState('')
   const [showSheet, setShowSheet]   = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
+  const [copied, setCopied]     = useState(false)
+
+  const copyStoryLink = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/story/${id}`)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
   const bottomRef = useRef(null)
 
   // 훅보다 먼저 정의해야 TDZ 에러 없음 (game은 null일 수 있으므로 optional chaining)
@@ -141,6 +148,16 @@ export default function Game() {
         >
           {bgmEnabled ? '♪' : '♩'}
         </button>
+
+        {isDead && (
+          <button
+            onClick={copyStoryLink}
+            className="hidden md:block"
+            style={{ fontSize: '0.7rem', color: copied ? '#22c55e' : '#9d7fe8', border: `1px solid ${copied ? 'rgba(34,197,94,0.3)' : 'rgba(157,127,232,0.25)'}`, borderRadius: '0.375rem', padding: '0.2rem 0.55rem', background: 'transparent', cursor: 'pointer' }}
+          >
+            {copied ? '✓ 복사됨' : '🔗 공유'}
+          </button>
+        )}
 
         {!isDead && (
           <button
@@ -341,10 +358,22 @@ export default function Game() {
                 </form>
 
                 {/* Format hint */}
-                <p style={{ textAlign: 'center', fontSize: '0.65rem', color: '#2e2e45', marginTop: '0.5rem', letterSpacing: '0.03em' }}>
-                  <span style={{ color: '#c9a84c', opacity: 0.6 }}>**행동**</span>
-                  {' '}으로 행동 지시 &nbsp;·&nbsp; 대사는 그냥 입력
-                </p>
+                {game.character?.in_battle ? (
+                  <p style={{ textAlign: 'center', fontSize: '0.65rem', color: '#5a3a3a', marginTop: '0.5rem', letterSpacing: '0.02em' }}>
+                    <span style={{ color: '#ef4444', opacity: 0.7 }}>⚔ 전투 중</span>
+                    {' — '}
+                    {game.character.inventory?.slice(0, 3).map(item =>
+                      `**${item}를 사용한다**`
+                    ).join(' · ')}
+                    {' · '}
+                    <span style={{ color: '#c9a84c', opacity: 0.6 }}>**도망친다**</span>
+                  </p>
+                ) : (
+                  <p style={{ textAlign: 'center', fontSize: '0.65rem', color: '#2e2e45', marginTop: '0.5rem', letterSpacing: '0.03em' }}>
+                    <span style={{ color: '#c9a84c', opacity: 0.6 }}>**행동**</span>
+                    {' '}으로 행동 지시 &nbsp;·&nbsp; 대사는 그냥 입력
+                  </p>
+                )}
               </div>
             </div>
           )}

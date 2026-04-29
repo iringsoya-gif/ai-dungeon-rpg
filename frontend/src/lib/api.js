@@ -31,6 +31,7 @@ export const api = {
   getGame:     (id)      => api.get(`/games/${id}`).then(r => r.json()),
   deleteGame:  (id)      => api.delete(`/games/${id}`),
   completeGame: (id)     => request(`/games/${id}/complete`, { method: 'POST' }).then(r => r.json()),
+  getStory:    (id)      => fetch(`${API_URL}/games/${id}/story`).then(r => r.ok ? r.json() : Promise.reject(r.status)),
 
   // 결제
   checkout:       ()              => api.post('/payment/checkout').then(r => r.json()),

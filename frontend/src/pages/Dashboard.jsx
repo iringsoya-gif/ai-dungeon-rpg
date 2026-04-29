@@ -10,6 +10,13 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [games, setGames]     = useState([])
   const [syncing, setSyncing] = useState(false)
+  const [copiedId, setCopiedId] = useState(null)
+
+  const copyStory = (id) => {
+    navigator.clipboard.writeText(`${window.location.origin}/story/${id}`)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
 
   useEffect(() => {
     api.listGames().then(setGames).catch(console.error)
@@ -241,6 +248,23 @@ export default function Dashboard() {
                   </div>
 
                   <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                    {(isDead || isCompleted) && (
+                      <button
+                        onClick={() => copyStory(game.id)}
+                        title="모험 기록 공유 링크 복사"
+                        style={{
+                          padding: '0.4rem 0.65rem',
+                          background: 'transparent',
+                          color: copiedId === game.id ? '#22c55e' : 'var(--muted)',
+                          border: `1px solid ${copiedId === game.id ? 'rgba(34,197,94,0.3)' : 'var(--border)'}`,
+                          borderRadius: '0.5rem',
+                          fontSize: '0.75rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {copiedId === game.id ? '✓' : '🔗'}
+                      </button>
+                    )}
                     <button
                       onClick={() => navigate(`/game/${game.id}`)}
                       style={{

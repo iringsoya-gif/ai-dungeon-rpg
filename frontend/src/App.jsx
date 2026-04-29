@@ -9,6 +9,7 @@ import GameOver from './pages/GameOver'
 import Pricing from './pages/Pricing'
 import PaymentSuccess from './pages/PaymentSuccess'
 import Callback from './pages/auth/Callback'
+import Story from './pages/Story'
 
 function PrivateRoute({ children }) {
   const user = useAuthStore(s => s.user)
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/games/:id/over" element={<PrivateRoute><GameOver /></PrivateRoute>} />
         <Route path="/pricing"        element={<Pricing />} />
         <Route path="/payment/success" element={<PrivateRoute><PaymentSuccess /></PrivateRoute>} />
+        <Route path="/story/:id"       element={<Story />} />
       </Routes>
     </BrowserRouter>
   )

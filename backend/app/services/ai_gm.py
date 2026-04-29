@@ -94,6 +94,9 @@ NPC는 플레이어의 말과 행동에 따라 태도가 바뀌고 숨겨진 감
 ## 위치
 {location}
 
+{npc_section}
+{location_section}
+
 ## 출력 형식
 이야기를 먼저 쓰고, 마지막에 JSON 블록을 붙이세요:
 
@@ -112,11 +115,45 @@ NPC는 플레이어의 말과 행동에 따라 태도가 바뀌고 숨겨진 감
     "location": "현재 위치명",
     "in_battle": false
   }},
-  "world_changes": {{}},
+  "world_changes": {{
+    "npcs": {{}},
+    "locations": {{}}
+  }},
   "game_over": false
 }}
 ```
+
+## world_changes 사용법
+- 이번 장면에 등장한 NPC가 있으면 npcs에 기록하세요:
+  `"아르간 노사": {{"desc": "노 마법사, 붉은 로브, 정보 판매상", "attitude": "neutral"}}`
+- 새로운 장소를 묘사했으면 locations에 기록하세요:
+  `"붉은 탑": {{"desc": "마법사 길드 본부, 도시 중심부"}}`
+- quest_add는 이름과 목표를 함께: `{{"name": "퀘스트명", "desc": "달성 목표 설명"}}`
+- 변경 없으면 npcs·locations는 빈 객체 `{{}}` 유지
 """
+
+
+def _format_npcs(world: dict) -> str:
+    npcs = world.get("npcs", {})
+    if not npcs:
+        return ""
+    lines = ["## 기억해야 할 NPC"]
+    for name, info in npcs.items():
+        attitude = info.get("attitude", "neutral")
+        desc = info.get("desc", "")
+        lines.append(f"- **{name}** ({attitude}): {desc}")
+    return "\n".join(lines)
+
+
+def _format_locations(world: dict) -> str:
+    locations = world.get("locations", {})
+    if not locations:
+        return ""
+    lines = ["## 알려진 장소"]
+    for name, info in locations.items():
+        desc = info.get("desc", "") if isinstance(info, dict) else str(info)
+        lines.append(f"- **{name}**: {desc}")
+    return "\n".join(lines)
 
 
 def build_system_prompt(game) -> str:
@@ -128,6 +165,8 @@ def build_system_prompt(game) -> str:
         hardcore_instruction=hardcore_inst,
         character_json=json.dumps(character, ensure_ascii=False, indent=2),
         location=character.get("location", "알 수 없는 장소"),
+        npc_section=_format_npcs(world),
+        location_section=_format_locations(world),
     )
 
 

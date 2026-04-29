@@ -13,7 +13,7 @@ from app.models.game import Game
 from app.models.history import History
 from app.services.ai_gm import stream_action, client as ai_client, generate_opening  # ai_client = Groq sync client
 from app.services.context_manager import context_mgr, estimate_tokens
-from app.services.state_manager import apply_state_changes, apply_death_penalty
+from app.services.state_manager import apply_state_changes, apply_death_penalty, apply_world_changes
 
 router = APIRouter()
 
@@ -258,6 +258,11 @@ async def take_action(
         character = json.loads(game.character_json)
         character = apply_state_changes(character, state_changes)
 
+        # 세계 상태 누적 (NPC·장소 메모리)
+        world = json.loads(game.world_json)
+        world = apply_world_changes(world, state_changes)
+        game.world_json = json.dumps(world, ensure_ascii=False)
+
         # 게임오버 처리
         if state_changes.get("game_over") and game.hardcore_mode:
             game.status = "dead"
@@ -282,6 +287,20 @@ async def take_action(
             "Connection": "keep-alive",
         },
     )
+
+
+@router.get("/{game_id}/story")
+def get_story(game_id: str, db: Session = Depends(get_db)):
+    """인증 없이 접근 가능한 공개 모험 기록 (완료/사망 게임만)"""
+    try:
+        gid = uuid.UUID(game_id)
+    except ValueError:
+        raise HTTPException(404, "게임을 찾을 수 없습니다")
+    game = db.query(Game).filter(Game.id == gid).first()
+    if not game or game.status not in ("completed", "dead"):
+        raise HTTPException(404, "공유할 수 없는 게임입니다")
+    histories = db.query(History).filter(History.game_id == game.id).order_by(History.turn).all()
+    return {**_game_to_dict(game), "histories": [_history_to_dict(h) for h in histories]}
 
 
 @router.post("/{game_id}/complete")
