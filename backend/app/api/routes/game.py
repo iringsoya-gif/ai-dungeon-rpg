@@ -1,10 +1,14 @@
 import json
 import uuid
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
@@ -200,7 +204,9 @@ def delete_game(
 
 
 @router.post("/{game_id}/action")
+@limiter.limit("15/minute")
 async def take_action(
+    request: Request,
     game_id: str,
     req: ActionRequest,
     current_user: User = Depends(get_current_user),

@@ -1,4 +1,4 @@
-from app.services.state_manager import parse_state_changes, apply_state_changes, apply_death_penalty
+from app.services.state_manager import parse_state_changes, apply_state_changes, apply_death_penalty, apply_world_changes
 
 
 def test_parse_valid_json():
@@ -98,3 +98,142 @@ def test_xp_no_level_up():
     result = apply_state_changes(character, changes)
     assert result["level"] == 1
     assert result["xp"] == 30
+
+
+# --- apply_world_changes 테스트 ---
+
+def _base_world():
+    return {"name": "테스트 세계", "description": "테스트", "npcs": {}, "locations": {}}
+
+
+def test_world_npc_add():
+    world = _base_world()
+    changes = {"world_changes": {"npcs": {"엘라": {"attitude": 30, "desc": "촌장"}}}}
+    result = apply_world_changes(world, changes)
+    assert result["npcs"]["엘라"]["attitude"] == 30
+    assert result["npcs"]["엘라"]["desc"] == "촌장"
+
+
+def test_world_npc_attitude_change_delta():
+    world = _base_world()
+    world["npcs"]["엘라"] = {"attitude": 30, "desc": "촌장"}
+    changes = {"world_changes": {"npcs": {"엘라": {"attitude_change": 20}}}}
+    result = apply_world_changes(world, changes)
+    assert result["npcs"]["엘라"]["attitude"] == 50
+    assert "attitude_change" not in result["npcs"]["엘라"]
+
+
+def test_world_npc_attitude_clamped_at_100():
+    world = _base_world()
+    world["npcs"]["엘라"] = {"attitude": 90}
+    changes = {"world_changes": {"npcs": {"엘라": {"attitude_change": 50}}}}
+    result = apply_world_changes(world, changes)
+    assert result["npcs"]["엘라"]["attitude"] == 100
+
+
+def test_world_npc_attitude_clamped_at_minus_100():
+    world = _base_world()
+    world["npcs"]["적"] = {"attitude": -80}
+    changes = {"world_changes": {"npcs": {"적": {"attitude_change": -50}}}}
+    result = apply_world_changes(world, changes)
+    assert result["npcs"]["적"]["attitude"] == -100
+
+
+def test_world_location_add():
+    world = _base_world()
+    changes = {"world_changes": {"locations": {"마을 광장": {"visited": True, "desc": "중심지"}}}}
+    result = apply_world_changes(world, changes)
+    assert result["locations"]["마을 광장"]["visited"] is True
+
+
+def test_world_empty_changes_safe():
+    world = _base_world()
+    result = apply_world_changes(world, {})
+    assert result["npcs"] == {}
+    assert result["locations"] == {}
+
+
+def test_world_original_not_mutated():
+    world = _base_world()
+    changes = {"world_changes": {"npcs": {"엘라": {"attitude": 10}}}}
+    apply_world_changes(world, changes)
+    assert "엘라" not in world["npcs"]
+
+
+# --- 퀘스트 딕트 형식 테스트 ---
+
+def _base_char():
+    return {
+        "level": 1, "xp": 0, "xp_to_next": 100,
+        "location": "마을",
+        "stats": {"hp": 80, "max_hp": 80, "mp": 40, "max_mp": 40,
+                  "strength": 10, "intelligence": 10, "agility": 10, "charisma": 10},
+        "inventory": ["단검"], "quests": [], "status_effects": [], "in_battle": False,
+    }
+
+
+def test_quest_add_dict_format():
+    c = _base_char()
+    changes = {"state_changes": {"quest_add": [{"name": "마룡 토벌", "desc": "용을 처치하라"}]}}
+    result = apply_state_changes(c, changes)
+    assert "마룡 토벌" in result["quests"]
+    assert result["quest_details"]["마룡 토벌"] == "용을 처치하라"
+
+
+def test_quest_add_string_format():
+    c = _base_char()
+    changes = {"state_changes": {"quest_add": ["단순 퀘스트"]}}
+    result = apply_state_changes(c, changes)
+    assert "단순 퀘스트" in result["quests"]
+
+
+def test_quest_no_duplicate():
+    c = _base_char()
+    c["quests"] = ["마룡 토벌"]
+    changes = {"state_changes": {"quest_add": [{"name": "마룡 토벌", "desc": "용을 처치하라"}]}}
+    result = apply_state_changes(c, changes)
+    assert result["quests"].count("마룡 토벌") == 1
+
+
+def test_quest_remove():
+    c = _base_char()
+    c["quests"] = ["마룡 토벌"]
+    c["quest_details"] = {"마룡 토벌": "용을 처치하라"}
+    changes = {"state_changes": {"quest_remove": ["마룡 토벌"]}}
+    result = apply_state_changes(c, changes)
+    assert "마룡 토벌" not in result["quests"]
+    assert "마룡 토벌" not in result.get("quest_details", {})
+
+
+# --- 상태 효과 테스트 ---
+
+def test_status_effects_add():
+    c = _base_char()
+    changes = {"state_changes": {"status_effects_add": ["독"]}}
+    result = apply_state_changes(c, changes)
+    assert "독" in result["status_effects"]
+
+
+def test_status_effects_remove():
+    c = _base_char()
+    c["status_effects"] = ["독", "화상"]
+    changes = {"state_changes": {"status_effects_remove": ["독"]}}
+    result = apply_state_changes(c, changes)
+    assert "독" not in result["status_effects"]
+    assert "화상" in result["status_effects"]
+
+
+# --- HP/MP 클램핑 테스트 ---
+
+def test_hp_clamp_max():
+    c = _base_char()
+    changes = {"state_changes": {"hp_change": 9999}}
+    result = apply_state_changes(c, changes)
+    assert result["stats"]["hp"] <= result["stats"]["max_hp"]
+
+
+def test_mp_cannot_go_below_zero():
+    c = _base_char()
+    changes = {"state_changes": {"mp_change": -9999}}
+    result = apply_state_changes(c, changes)
+    assert result["stats"]["mp"] == 0

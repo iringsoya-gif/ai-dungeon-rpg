@@ -34,9 +34,18 @@ def apply_world_changes(world: dict, changes: dict) -> dict:
     w = copy.deepcopy(world)
     wc = changes.get("world_changes", {})
     if isinstance(wc.get("npcs"), dict):
-        w.setdefault("npcs", {}).update(wc["npcs"])
+        for npc_name, npc_data in wc["npcs"].items():
+            existing = w.setdefault("npcs", {}).get(npc_name, {})
+            merged = {**existing, **npc_data}
+            if "attitude_change" in npc_data:
+                base = existing.get("attitude", 0)
+                merged["attitude"] = max(-100, min(100, base + npc_data["attitude_change"]))
+                del merged["attitude_change"]
+            w["npcs"][npc_name] = merged
     if isinstance(wc.get("locations"), dict):
-        w.setdefault("locations", {}).update(wc["locations"])
+        for loc_name, loc_data in wc["locations"].items():
+            existing = w.setdefault("locations", {}).get(loc_name, {})
+            w["locations"][loc_name] = {**existing, **loc_data}
     return w
 
 
@@ -46,9 +55,9 @@ def apply_state_changes(character: dict, changes: dict) -> dict:
     sc = changes.get("state_changes", {})
 
     if "hp_change" in sc:
-        c["stats"]["hp"] = max(0, c["stats"]["hp"] + sc["hp_change"])
+        c["stats"]["hp"] = max(0, min(c["stats"].get("max_hp", 999), c["stats"]["hp"] + sc["hp_change"]))
     if "mp_change" in sc:
-        c["stats"]["mp"] = max(0, c["stats"]["mp"] + sc["mp_change"])
+        c["stats"]["mp"] = max(0, min(c["stats"].get("max_mp", 999), c["stats"]["mp"] + sc["mp_change"]))
     if "inventory_add" in sc:
         c["inventory"].extend(sc["inventory_add"])
     if "inventory_remove" in sc:

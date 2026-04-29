@@ -18,7 +18,13 @@ POLAR_WEBHOOK_SECRET = os.getenv("POLAR_WEBHOOK_SECRET")
 ALGORITHM                   = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 
-if not SECRET_KEY:
-    raise RuntimeError("SECRET_KEY 환경변수가 설정되지 않았습니다")
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL 환경변수가 설정되지 않았습니다")
+_REQUIRED = {
+    "SECRET_KEY": SECRET_KEY,
+    "DATABASE_URL": DATABASE_URL,
+    "GROQ_API_KEY": GROQ_API_KEY,
+    "GOOGLE_CLIENT_ID": GOOGLE_CLIENT_ID,
+    "GOOGLE_CLIENT_SECRET": GOOGLE_CLIENT_SECRET,
+}
+_missing = [k for k, v in _REQUIRED.items() if not v]
+if _missing:
+    raise RuntimeError(f"필수 환경변수 누락: {', '.join(_missing)}")
