@@ -2,7 +2,7 @@ import json
 from groq import Groq, AsyncGroq
 from app.core.config import GROQ_API_KEY
 from app.services.context_manager import context_mgr, estimate_tokens
-from app.services.state_manager import parse_state_changes, apply_state_changes, apply_death_penalty
+from app.services.state_manager import parse_state_changes
 from app.services.text_sanitizer import sanitize_korean
 
 client       = Groq(api_key=GROQ_API_KEY)
@@ -14,71 +14,91 @@ OPENING_MODEL = "llama-3.3-70b-versatile"
 HARDCORE_ON_INST  = "- 하드코어 모드: HP가 0이 되면 반드시 game_over를 true로 설정하세요."
 HARDCORE_OFF_INST = "- 일반 모드: HP가 0이 되면 game_over는 false를 유지하세요. 패널티는 서버가 처리합니다."
 
+
+# ─── 장르 감지 ──────────────────────────────────────────────────────────────
+
+_GENRE_KEYWORDS = {
+    "fantasy": ["마법", "검", "용", "왕국", "엘프", "드워프", "기사", "성", "중세", "마법사", "마나", "던전"],
+    "scifi":   ["우주", "로봇", "사이버", "인공지능", "함선", "행성", "미래", "레이저", "안드로이드", "SF", "sf"],
+    "horror":  ["공포", "귀신", "저주", "악마", "살인", "유령", "크리처", "심리", "사이코", "호러"],
+}
+
+
+def _detect_genre(description: str) -> str:
+    for genre, keywords in _GENRE_KEYWORDS.items():
+        if any(kw in description for kw in keywords):
+            return genre
+    return "modern"
+
+
+# ─── 장르별 문체 블록 ────────────────────────────────────────────────────────
+
+_GENRE_STYLE_BLOCKS = {
+    "fantasy": """## 장르 톤: 판타지 서사
+- 고풍스러운 서사체. 긴 문장(3)과 짧은 문장(1)을 번갈아 리듬감 있게 쓰세요.
+- 자연·마법·신화 요소를 감각으로 묘사. ("봉인의 냄새", "마력이 손끝을 타고 퍼졌다")
+- NPC 대사: 중세풍 격식체 또는 개성 있는 사투리. NPC마다 반드시 고유한 말투.
+- 전투: 칼날의 무게, 마력의 흐름. 절제하되 강렬하게.
+- 절대 금지: "HP", "MP", "스탯", "레벨", "아이템" 등 게임 용어를 서술에 쓰지 마세요. JSON에만 허용.""",
+
+    "scifi": """## 장르 톤: SF 스릴러
+- 간결하고 건조한 단문. 감정보다 정보와 상황을 직접 전달.
+- 기술 용어를 한국어화. ("슈트 바이저에 경고 신호", "산소 잔량 18퍼센트")
+- NPC 대사: 군사·기술 전문 어투. 감정을 억누르고 임무에 집중하는 캐릭터.
+- 전투: 폭발보다 계산. 속도·포지션·냉정함.
+- 침묵·정적·공허함을 적극적으로 활용하세요.""",
+
+    "horror": """## 장르 톤: 공포·심리
+- 극단적으로 짧은 문장. 침묵과 여백이 공포를 만듭니다.
+- 소리·냄새·촉감·온도 위주 묘사. 눈에 보이지 않는 것을 암시만.
+- NPC 대사: 말줄임, 떨리는 목소리, 논리적이지 않은 공포 반응.
+- 공포의 실체를 절대 직접 묘사하지 마세요. 독자의 상상력이 정답입니다.
+- 각 문단은 공포를 쌓고, 마지막 문장에 반전 또는 충격을 심으세요.""",
+
+    "modern": """## 장르 톤: 현대 액션·드라마
+- 자연스러운 일상 구어체. 독자가 이미 아는 공간에서 시작.
+- 현대 감각의 비유. ("핸드폰 진동처럼 손이 떨렸다", "형광등이 깜빡였다")
+- NPC 대사: 편한 말투, 줄임말, 감정이 드러나는 반응.
+- 행동 묘사는 현실적이고 디테일하게. 영화 한 장면처럼 선명하게.""",
+}
+
+
+# ─── 시스템 프롬프트 템플릿 ─────────────────────────────────────────────────
+
 SYSTEM_TEMPLATE = """당신은 한국 웹소설 작가이자 RPG 게임마스터입니다.
 
-## ★ 언어 규칙 (절대 원칙 — 이것을 어기면 출력 전체가 무효)
-- 오직 한글과 영문 알파벳만 사용하세요.
-- 한자(漢字), 일본어(ひらがな·カタカナ·漢字), 중국어 간체·번체 — 단 한 글자도 허용하지 않습니다.
-- 아래는 절대 금지입니다. 비슷한 패턴 모두 포함:
-    금지: 表情, 秘密, 看穿, 微笑, 感情, 力量, 気持ち, 叫んだ, 指示, こちら
-    대체: 표정, 비밀, 꿰뚫다, 미소, 감정, 힘, 마음, 외쳤다, 지시, 이쪽
-- 한자어가 생각나면 반드시 한글 발음으로 바꾸세요.
+## ★ 언어 규칙 (절대 원칙)
+- 오직 한국어(한글+영문자+숫자+기호)만 사용하세요.
+- 한자(漢字), 일본어(ひらがな·カタカナ), 중국어 간체·번체 — 단 한 글자도 허용 안 됩니다.
+- 영어 단어를 섞어 쓰지 마세요. 영어로 쓰고 싶은 단어는 한국어 발음·번역으로.
+  예) × "attack" → ○ "공격" / × "Dark Forest" → ○ "어둠의 숲" / × "quest" → ○ "퀘스트"
+- 한자어가 생각나면 즉시 한글 발음으로 바꾸세요.
   예) × "表情을 읽었다" → ○ "표정을 읽었다"
-  예) × "그秘密를 알고 있다" → ○ "그 비밀을 알고 있다"
 
-## ★ 말투 일관성 (어기면 몰입 파괴)
-- NPC가 처음 등장할 때 반드시 고유한 이름을 지어주세요. "노인", "마법사" 같은 역할 명칭만 쓰지 마세요.
+## ★ 말투 일관성
+- NPC가 처음 등장할 때 반드시 고유한 이름을 지어주세요.
   예) × "나이 많은 마법사" → ○ "아르간 노사" 또는 "벨린 대마법사"
 - 한 NPC의 말투(존댓말/반말)는 처음부터 끝까지 동일하게 유지하세요.
-- 플레이어("당신")에 대한 NPC의 말투도 일관성 있게 유지하세요.
 
-## ★ 장면·위치 연속성 (핵심 규칙)
+## ★ 장면·위치 연속성
 - 대화 기록을 반드시 확인하고, 현재 장면이 어디인지 파악한 뒤 서술하세요.
 - 직전 GM 서술에서 확립된 장소와 상황을 그대로 이어받아야 합니다.
-- 플레이어의 행동 결과를 반드시 같은 장소·같은 순간에 묘사하세요.
-  예) 어두운 방에서 편지를 집어 들었다 → 그 방에서 편지 내용을 묘사
 - 플레이어의 행동을 무시하거나 갑자기 다른 장소로 이동하지 마세요.
 
 ## 세계관
 {world_description}
 
-## 문체 — 웹소설 스타일
-짧고 리드미컬한 문장으로 몰입감을 만드세요. 아래 예시를 참고하세요.
-
-나쁜 예 (딱딱하고 단절됨):
-"당신은 검을 들고 적에게 돌진하였다. 상대방은 방어 자세를 취하며 당신의 공격을 막아냈다."
-
-좋은 예 (웹소설 스타일):
-"검을 꽉 쥐었다.
-발이 땅을 박찼다. 순식간에 좁혀지는 거리.
-상대가 반응했지만 — 늦었다.
-칼날이 방패 모서리를 타고 튕겨나가며 불꽃을 튀겼다."
-
-핵심 규칙:
-- 짧은 문장과 긴 문장을 섞어 리듬감을 살리세요.
-- 감각적 묘사와 감정을 직접적으로 써도 됩니다. ("심장이 쿵 내려앉았다", "등골이 서늘해졌다")
-- 대화는 캐릭터 성격이 드러나도록 자연스럽게. 큰따옴표 사용.
-- 모든 장소·인물에 세계관에 맞는 고유한 이름을 붙이세요.
-- "NPC", "몬스터", "스탯" 같은 게임 용어는 절대 쓰지 마세요.
-- 플레이어를 "당신"으로 지칭하세요.
-- 분량: 3~5문단. 전투·중요 장면은 더 길게.
+{genre_style}
 
 ## 플레이어 입력 해석
-플레이어 입력은 두 가지 형태로 옵니다:
+1. **`**행동**` 형태**: 플레이어가 실제로 하는 행동 → 결과, 주변 반응, 세계의 변화를 묘사.
+2. **일반 텍스트**: 플레이어 캐릭터의 대사 → NPC들이 직접 반응하고 대화를 이어가세요.
 
-1. **`**행동**` 형태**: 플레이어가 실제로 하는 행동입니다.
-   → 그 행동의 결과, 주변 반응, 세계의 변화를 현재 장소에서 서술하세요.
-   예) `**편지를 펼쳐 읽는다**` → 편지 내용과 읽는 순간의 감각을 묘사
-
-2. **일반 텍스트**: 플레이어 캐릭터의 대사입니다.
-   → NPC들이 그 말에 직접 반응하고 대화를 이어가세요.
-
-두 형태가 섞여 올 수도 있습니다. 항상 플레이어의 의도에 능동적으로 반응하세요.
-NPC는 플레이어의 말과 행동에 따라 태도가 바뀌고 숨겨진 감정이나 정보를 드러내기도 합니다.
+NPC는 플레이어의 말과 행동에 따라 태도가 바뀌고 숨겨진 감정·정보를 드러내기도 합니다.
 
 ## 전투
-빠르고 박진감 있게. 주먹이 날아가는 소리, 바람을 가르는 검, 마법이 터지는 충격파.
-능력치 반영: strength 높으면 압도적인 힘으로, agility 높으면 눈에 안 보이는 속도로, intelligence 높으면 허점을 꿰뚫는 판단력으로.
+빠르고 박진감 있게. 주먹이 날아가는 소리, 검을 가르는 바람, 마법이 터지는 충격파.
+능력치 반영: strength 높으면 압도적 힘으로, agility 높으면 눈에 안 보이는 속도로, intelligence 높으면 허점을 꿰뚫는 판단력으로.
 역전과 위기를 만들어 긴장감을 유지하세요.
 {hardcore_instruction}
 
@@ -98,7 +118,7 @@ NPC는 플레이어의 말과 행동에 따라 태도가 바뀌고 숨겨진 감
 {location_section}
 
 ## 출력 형식
-이야기를 먼저 쓰고, 마지막에 JSON 블록을 붙이세요:
+이야기를 먼저 쓰고(3~5문단), 마지막에 JSON 블록을 붙이세요:
 
 ```json
 {{
@@ -124,14 +144,85 @@ NPC는 플레이어의 말과 행동에 따라 태도가 바뀌고 숨겨진 감
 ```
 
 ## world_changes 사용법
-- 이번 장면에 등장한 NPC가 있으면 npcs에 기록하세요:
-  `"아르간 노사": {{"desc": "노 마법사, 붉은 로브, 정보 판매상", "attitude": "neutral"}}`
-- 새로운 장소를 묘사했으면 locations에 기록하세요:
+- 이번 장면에 등장한 NPC가 있으면 npcs에 기록:
+  `"아르간 노사": {{"desc": "노 마법사, 붉은 로브, 정보 판매상", "attitude": 10}}`
+  이미 아는 NPC 태도가 바뀌었으면 attitude_change(정수)로 기록:
+  `"아르간 노사": {{"attitude_change": 20}}`  (→ 기존 태도에 +20, -100~100 범위)
+- 새로운 장소를 묘사했으면 locations에 기록:
   `"붉은 탑": {{"desc": "마법사 길드 본부, 도시 중심부"}}`
 - quest_add는 이름과 목표를 함께: `{{"name": "퀘스트명", "desc": "달성 목표 설명"}}`
 - 변경 없으면 npcs·locations는 빈 객체 `{{}}` 유지
 """
 
+
+# ─── Few-shot 예시 교환 ──────────────────────────────────────────────────────
+
+_EMPTY_JSON = (
+    '```json\n'
+    '{"state_changes": {"hp_change": 0, "mp_change": 0, "xp_gain": 0, '
+    '"inventory_add": [], "inventory_remove": [], "quest_add": [], "quest_remove": [], '
+    '"status_effects_add": [], "status_effects_remove": [], '
+    '"location": "현재 위치", "in_battle": false}, '
+    '"world_changes": {"npcs": {}, "locations": {}}, "game_over": false}\n'
+    '```'
+)
+
+_FEWSHOT_EXCHANGES: dict[str, list[dict]] = {
+    "fantasy": [
+        {"role": "user", "content": "**주변을 천천히 둘러본다**"},
+        {"role": "assistant", "content": (
+            "바람이 없었다.\n\n"
+            "복도는 죽어 있었다. 횃불도, 창문도 없이 — 오래된 돌냄새만이 공기를 채웠다. "
+            "그런데 눈이 익어갔다. 당신의 감각이 빛보다 먼저 공간을 읽어냈다.\n\n"
+            "그리고 멈췄다.\n\n"
+            "공기 냄새가 달랐다. 오래된 계약의 냄새. 봉인이 깨지기 직전의 그것.\n\n"
+            "\"…누가 있나?\"\n\n"
+            "메아리가 돌아왔다. 그리고 메아리가 사라진 자리에 — 아주 작게 — 발소리 하나가 남아 있었다.\n\n"
+            + _EMPTY_JSON
+        )},
+    ],
+    "scifi": [
+        {"role": "user", "content": "**주변을 점검한다**"},
+        {"role": "assistant", "content": (
+            "바이저 디스플레이에 숫자들이 떴다.\n\n"
+            "온도 영하 12도. 산소 잔량 74퍼센트. 통신 신호 없음.\n\n"
+            "시설은 조용했다. 너무 조용했다. "
+            "비상등 두 개가 적색으로 깜빡이고 있었다. "
+            "발밑 바닥에 긁힌 자국이 일직선으로 뻗어 있었다 — 뭔가 무거운 것을 끌었던 흔적.\n\n"
+            "통신기를 눌렀다. 잡음만.\n\n"
+            "선택해야 했다. 빨리.\n\n"
+            + _EMPTY_JSON
+        )},
+    ],
+    "horror": [
+        {"role": "user", "content": "**소리가 나는 쪽을 바라본다**"},
+        {"role": "assistant", "content": (
+            "소리가 멈췄다.\n\n"
+            "어둠.\n\n"
+            "그 안에 뭔가 있었다. 형체는 보이지 않았다. 하지만 있었다. 분명히.\n\n"
+            "등이 아니었다. 눈이었다. 눈 뒤쪽, 머릿속 어딘가가 조여들었다.\n\n"
+            "그것이 움직였다.\n\n"
+            + _EMPTY_JSON
+        )},
+    ],
+    "modern": [
+        {"role": "user", "content": "**주위를 둘러본다**"},
+        {"role": "assistant", "content": (
+            "형광등이 한 번 깜빡였다.\n\n"
+            "안은 조용했다. "
+            "냉장고 쪽에서 기계 소리가 낮게 윙윙거렸다. "
+            "밖에는 빗소리가 시작되고 있었다.\n\n"
+            "그런데.\n\n"
+            "구석 쪽 남자가 신경 쓰였다. 5분째 같은 자리에 서 있었다. "
+            "고개를 한 번도 들지 않았는데 — 느낌상 계속 이쪽을 보고 있는 것 같았다.\n\n"
+            "눈이 마주쳤다.\n\n"
+            + _EMPTY_JSON
+        )},
+    ],
+}
+
+
+# ─── 헬퍼 함수 ──────────────────────────────────────────────────────────────
 
 def _format_npcs(world: dict) -> str:
     npcs = world.get("npcs", {})
@@ -139,9 +230,10 @@ def _format_npcs(world: dict) -> str:
         return ""
     lines = ["## 기억해야 할 NPC"]
     for name, info in npcs.items():
-        attitude = info.get("attitude", "neutral")
+        attitude = info.get("attitude", 0)
+        attitude_label = "우호적" if attitude > 30 else "적대적" if attitude < -30 else "중립"
         desc = info.get("desc", "")
-        lines.append(f"- **{name}** ({attitude}): {desc}")
+        lines.append(f"- **{name}** (태도 {attitude}, {attitude_label}): {desc}")
     return "\n".join(lines)
 
 
@@ -160,8 +252,10 @@ def build_system_prompt(game) -> str:
     world     = json.loads(game.world_json)
     character = json.loads(game.character_json)
     hardcore_inst = HARDCORE_ON_INST if game.hardcore_mode else HARDCORE_OFF_INST
+    genre = _detect_genre(world.get("description", ""))
     return SYSTEM_TEMPLATE.format(
         world_description=world.get("description", ""),
+        genre_style=_GENRE_STYLE_BLOCKS[genre],
         hardcore_instruction=hardcore_inst,
         character_json=json.dumps(character, ensure_ascii=False, indent=2),
         location=character.get("location", "알 수 없는 장소"),
@@ -169,6 +263,13 @@ def build_system_prompt(game) -> str:
         location_section=_format_locations(world),
     )
 
+
+def _get_genre(game) -> str:
+    world = json.loads(game.world_json)
+    return _detect_genre(world.get("description", ""))
+
+
+# ─── 스트리밍 액션 ───────────────────────────────────────────────────────────
 
 async def stream_action(game, histories: list, player_input: str):
     """
@@ -178,10 +279,13 @@ async def stream_action(game, histories: list, player_input: str):
     - ("error", str)   를 오류 시 yield
     """
     system   = build_system_prompt(game)
-    messages = context_mgr.build_context(game, histories)
-    messages.append({"role": "user", "content": player_input})
+    genre    = _get_genre(game)
+    history  = context_mgr.build_context(game, histories)
 
-    # Groq/OpenAI 형식: system은 messages 배열 첫 번째 항목으로
+    # few-shot 예시를 게임 히스토리 앞에 삽입
+    fewshot  = _FEWSHOT_EXCHANGES.get(genre, _FEWSHOT_EXCHANGES["modern"])
+    messages = fewshot + history + [{"role": "user", "content": player_input}]
+
     groq_messages = [{"role": "system", "content": system}] + messages
 
     full_response = ""
@@ -213,54 +317,36 @@ async def stream_action(game, histories: list, player_input: str):
     })
 
 
+# ─── 오프닝 생성 ─────────────────────────────────────────────────────────────
+
 OPENING_PROMPT = """당신은 인기 한국 웹소설 작가입니다.
 RPG 게임의 오프닝 장면을 소설의 첫 장처럼 써주세요.
 
-## 시점 규칙 (가장 중요)
+## 언어 규칙 (절대)
+- 오직 한국어(한글+영문자+숫자)만 사용하세요.
+- 한자·일본어·중국어 단 한 글자도 허용 안 됩니다.
+- 영어 단어를 서술에 섞지 마세요. 한국어로 바꾸거나 한국식 발음으로.
+
+## 시점 규칙
 - 반드시 2인칭 "당신"으로만 서술하세요.
-- "나", "크루", "그", "그녀" 등 1인칭·3인칭 절대 사용 금지.
-- 올바른 예: "당신의 손이 검 손잡이 위에 머물렀다."
-- 틀린 예: "나는 검을 잡았다." / "크루는 마을을 걸었다."
+- "나", "그", "그녀" 등 1인칭·3인칭 절대 사용 금지.
 
 ## 직업 반영
-- 캐릭터 직업({character_class})에 맞는 능력·습관·시선으로 서술하세요.
-- 전사 → 단단한 체구, 무기 감각, 전장 경험
-- 마법사 → 마력 감지, 책과 연구, 예민한 감각
-- 도적 → 그림자에 스미는 시선, 조용한 발걸음
-- 다른 직업도 마찬가지로 직업에 맞게 자연스럽게 녹여주세요.
+캐릭터 직업({character_class})에 맞는 능력·습관·시선으로 서술하세요.
 
-## 3~4문단 구성 — 반드시 이 순서대로
-
-[1문단] 장소와 세계의 공기
-- 빛·소리·냄새·온도 등 감각으로 시작
-- 독자가 이 세계에 발을 딛는 느낌
-- 극적인 사건 없이, 풍경만으로 세계관이 느껴지도록
-
-[2문단] 당신의 현재 순간
-- 지금 당신이 어디서 무엇을 하고 있는지
-- 직업과 배경에서 나오는 자연스러운 감정·생각
-- 아무 일도 일어나지 않은, 평범하고 조용한 한 순간
-
-[3~4문단] 모험의 씨앗 — 아주 은은하게
-- 어딘가 심상치 않다는 느낌을 아주 작게만 심어두기
-- 낯선 시선, 우연히 들은 소문, 오래된 기억 한 조각
-- "사건이 터진다"가 아니라 "뭔가 시작될 것 같다"는 여운
-- 마지막 줄은 당신이 선택할 수 있는 질문이나 상황으로 끝내기
+## 구성 (3~4문단, 반드시 이 순서)
+[1문단] 장소와 세계의 공기 — 빛·소리·냄새·온도 등 감각으로 시작
+[2문단] 당신의 현재 순간 — 지금 어디서 무엇을 하고 있는지, 평범하고 조용한 한 순간
+[3~4문단] 모험의 씨앗 — 낯선 시선, 우연히 들은 소문, 오래된 기억 한 조각. "사건이 터진다"가 아니라 "뭔가 시작될 것 같다"는 여운으로 끝내기
 
 ## 문체
 짧은 문장과 긴 문장을 섞어 리듬을 살리세요.
-나쁜 예: "당신은 마을 광장을 걸으며 주변을 둘러보았다. 사람들이 많았다."
+나쁜 예: "당신은 마을 광장을 걸으며 주변을 둘러보았다."
 좋은 예: "돌바닥이 발 아래서 울렸다. 광장은 이른 아침부터 북적였다 — 하지만 당신의 눈은 자꾸 골목 어귀에 멈추었다."
 
 ## 절대 하지 말 것
 - 도난·추격·싸움·폭발 등 즉각적 사건 금지
-- 1인칭("나는")·3인칭("크루는") 혼용 금지
-- 여러 등장인물이 한꺼번에 쏟아지는 혼란한 장면 금지
 - JSON 블록 없이 이야기만 작성
-
-## 언어 규칙
-- 순수 한국어(한글+영문자)만 사용
-- 漢字·日本語 절대 금지
 
 세계관: {world_description}
 캐릭터 이름: {character_name}
@@ -282,10 +368,10 @@ def generate_opening(world_description: str, character_name: str, character_clas
             max_tokens=512,
             messages=[{"role": "user", "content": prompt}],
         )
-        return response.choices[0].message.content
+        return sanitize_korean(response.choices[0].message.content)
     except Exception:
         return (
-            f"당신은 {character_name}입니다. {character_class} 출신의 용사로, "
+            f"당신은 {character_name}입니다. {character_class} 출신으로, "
             f"{character_background}\n\n"
             f"낯선 땅에 발을 내딛는 순간, 운명의 바퀴가 돌기 시작합니다. "
             f"무엇을 하시겠습니까?"
