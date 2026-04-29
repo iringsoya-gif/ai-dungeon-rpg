@@ -33,6 +33,71 @@ function stripJson(text, streaming = false) {
   return text.replace(/```json[\s\S]*?```/g, '').trim()
 }
 
+/* GM 텍스트를 서술 / NPC 대화 파트로 분리 */
+function parseGmContent(text) {
+  const parts = []
+  // [NPC이름] "대사" 형식 감지
+  const regex = /\[([^\]]+)\]\s*"([^"]*)"/g
+  let lastIndex = 0
+  let match
+  while ((match = regex.exec(text)) !== null) {
+    const before = text.slice(lastIndex, match.index).trim()
+    if (before) parts.push({ type: 'narrative', text: before })
+    parts.push({ type: 'dialogue', name: match[1].trim(), text: match[2] })
+    lastIndex = match.index + match[0].length
+  }
+  const remaining = text.slice(lastIndex).trim()
+  if (remaining) parts.push({ type: 'narrative', text: remaining })
+  return parts.length ? parts : [{ type: 'narrative', text }]
+}
+
+/* GM 완성 메시지 렌더링 (NPC 대화 블록 포함) */
+function GmContent({ raw, fontSize, FONT_SIZE }) {
+  const text = stripJson(raw)
+  const parts = parseGmContent(text)
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.type === 'dialogue' ? (
+          <div key={i} style={{
+            margin: '0.75rem 0',
+            paddingLeft: '0.875rem',
+            borderLeft: '2px solid rgba(201,168,76,0.55)',
+            background: 'rgba(201,168,76,0.03)',
+            borderRadius: '0 0.375rem 0.375rem 0',
+            paddingTop: '0.35rem',
+            paddingBottom: '0.35rem',
+          }}>
+            <div style={{
+              fontSize: '0.58rem', color: '#c9a84c',
+              letterSpacing: '0.1em', fontFamily: 'monospace',
+              fontWeight: 700, marginBottom: '0.2rem',
+              textTransform: 'uppercase',
+            }}>
+              {part.name}
+            </div>
+            <div style={{
+              fontSize: FONT_SIZE[fontSize], color: '#f0e8d0',
+              lineHeight: 1.85, fontFamily: "'Noto Serif KR', serif",
+              fontStyle: 'italic',
+            }}>
+              "{part.text}"
+            </div>
+          </div>
+        ) : (
+          <p key={i} style={{
+            fontSize: FONT_SIZE[fontSize], color: '#ddd8f0',
+            lineHeight: 1.95, margin: '0.3rem 0',
+            whiteSpace: 'pre-wrap', fontFamily: "'Noto Serif KR', serif",
+          }}>
+            {part.text}
+          </p>
+        )
+      )}
+    </>
+  )
+}
+
 export default function Game() {
   const { id }    = useParams()
   const navigate  = useNavigate()
@@ -267,9 +332,7 @@ export default function Game() {
                       <span style={{ fontSize: '0.6rem', color: '#5a4a80', letterSpacing: '0.1em', display: 'block', marginBottom: '0.5rem', fontFamily: 'monospace' }}>
                         GAME MASTER
                       </span>
-                      <p style={{ fontSize: FONT_SIZE[fontSize], color: '#ddd8f0', lineHeight: 1.95, margin: 0, whiteSpace: 'pre-wrap', fontFamily: "'Noto Serif KR', serif" }}>
-                        {stripJson(h.content)}
-                      </p>
+                      <GmContent raw={h.content} fontSize={fontSize} FONT_SIZE={FONT_SIZE} />
                     </div>
                   </div>
                 )
