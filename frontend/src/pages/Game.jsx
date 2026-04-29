@@ -40,17 +40,27 @@ export default function Game() {
   const { streaming, streamError, lastAction, sendAction, retry, cancel } = useStream()
   const { enabled: bgmEnabled, toggle: bgmToggle, start: bgmStart, setMood } = useBGM()
   const bgmStarted = useRef(false)
-  const [input, setInput]       = useState('')
-  const [showSheet, setShowSheet]   = useState(false)
+  const [input, setInput]         = useState('')
+  const [showSheet, setShowSheet] = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
-  const [copied, setCopied]     = useState(false)
+  const [copied, setCopied]       = useState(false)
+  const [saved, setSaved]         = useState(false)
+  const [fontSize, setFontSize]   = useState(() => localStorage.getItem('rpg-font-size') || 'md')
+  const bottomRef = useRef(null)
+
+  const FONT_SIZE = { sm: '0.82rem', md: '0.9rem', lg: '1.05rem' }
 
   const copyStoryLink = () => {
     navigator.clipboard.writeText(`${window.location.origin}/story/${id}`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
-  const bottomRef = useRef(null)
+
+  const cycleFontSize = () => {
+    const next = fontSize === 'sm' ? 'md' : fontSize === 'md' ? 'lg' : 'sm'
+    setFontSize(next)
+    localStorage.setItem('rpg-font-size', next)
+  }
 
   // 훅보다 먼저 정의해야 TDZ 에러 없음 (game은 null일 수 있으므로 optional chaining)
   const isDead = game?.status === 'dead' || game?.status === 'completed'
@@ -64,6 +74,17 @@ export default function Game() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [histories, streamText])
+
+  // 저장 완료 피드백
+  const prevStreaming = useRef(false)
+  useEffect(() => {
+    if (prevStreaming.current && !streaming && !streamError) {
+      setSaved(true)
+      const t = setTimeout(() => setSaved(false), 2000)
+      return () => clearTimeout(t)
+    }
+    prevStreaming.current = streaming
+  }, [streaming, streamError])
 
   // BGM mood: switch by battle state
   useEffect(() => {
@@ -95,7 +116,7 @@ export default function Game() {
   )
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#0a0a10' }}>
+    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: '#0a0a10' }}>
 
       {/* ── Header ── */}
       <header style={{
@@ -128,9 +149,21 @@ export default function Game() {
           </span>
         )}
 
-        <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#3a3a50', fontFamily: 'monospace' }}>
-          T-{game.turn_count}
+        <span style={{ marginLeft: 'auto', fontSize: '0.7rem', fontFamily: 'monospace', transition: 'color 0.3s', color: saved ? '#22c55e' : '#3a3a50' }}>
+          {saved ? '✓ 저장됨' : `T-${game.turn_count}`}
         </span>
+
+        {/* 폰트 크기 조절 */}
+        <button
+          onClick={cycleFontSize}
+          title={`폰트 크기: ${fontSize === 'sm' ? '소' : fontSize === 'md' ? '중' : '대'} (클릭으로 변경)`}
+          style={{ fontSize: '0.75rem', background: 'none', border: 'none', cursor: 'pointer', color: '#3a3a50', padding: '0.1rem 0.2rem', transition: 'color 0.2s' }}
+          onMouseEnter={e => e.currentTarget.style.color = '#9d7fe8'}
+          onMouseLeave={e => e.currentTarget.style.color = '#3a3a50'}
+        >
+          {fontSize === 'sm' ? 'A' : fontSize === 'md' ? 'A' : 'A'}
+          <sup style={{ fontSize: '0.55rem' }}>{fontSize === 'sm' ? '소' : fontSize === 'md' ? '중' : '대'}</sup>
+        </button>
 
         {/* BGM toggle */}
         <button
@@ -234,13 +267,41 @@ export default function Game() {
                       <span style={{ fontSize: '0.6rem', color: '#5a4a80', letterSpacing: '0.1em', display: 'block', marginBottom: '0.5rem', fontFamily: 'monospace' }}>
                         GAME MASTER
                       </span>
-                      <p style={{ fontSize: '0.9rem', color: '#ddd8f0', lineHeight: 1.95, margin: 0, whiteSpace: 'pre-wrap', fontFamily: "'Noto Serif KR', serif" }}>
+                      <p style={{ fontSize: FONT_SIZE[fontSize], color: '#ddd8f0', lineHeight: 1.95, margin: 0, whiteSpace: 'pre-wrap', fontFamily: "'Noto Serif KR', serif" }}>
                         {stripJson(h.content)}
                       </p>
                     </div>
                   </div>
                 )
               ))}
+
+              {/* 스타터 액션 칩 — 첫 턴에만 표시 */}
+              {histories.length === 1 && histories[0]?.role === 'gm' && !streaming && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', paddingLeft: '2.625rem' }}>
+                  {[
+                    '**주변을 둘러본다**',
+                    '**가장 가까운 사람에게 말을 건다**',
+                    '**앞으로 나아간다**',
+                    '**장비를 확인한다**',
+                  ].map(action => (
+                    <button
+                      key={action}
+                      onClick={() => setInput(action)}
+                      style={{
+                        fontSize: '0.72rem', color: '#c9a84c',
+                        background: 'rgba(201,168,76,0.06)',
+                        border: '1px solid rgba(201,168,76,0.25)',
+                        borderRadius: '9999px', padding: '0.3rem 0.75rem',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(201,168,76,0.14)'; e.currentTarget.style.borderColor = 'rgba(201,168,76,0.5)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(201,168,76,0.06)'; e.currentTarget.style.borderColor = 'rgba(201,168,76,0.25)' }}
+                    >
+                      {action.replace(/\*\*/g, '')}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Streaming */}
               {streaming && (
@@ -261,7 +322,7 @@ export default function Game() {
                     <span style={{ fontSize: '0.6rem', color: '#5a4a80', letterSpacing: '0.1em', display: 'block', marginBottom: '0.5rem', fontFamily: 'monospace' }}>
                       GAME MASTER
                     </span>
-                    <div style={{ fontSize: '0.9rem', color: '#ddd8f0', lineHeight: 1.95, whiteSpace: 'pre-wrap', fontFamily: "'Noto Serif KR', serif" }}>
+                    <div style={{ fontSize: FONT_SIZE[fontSize], color: '#ddd8f0', lineHeight: 1.95, whiteSpace: 'pre-wrap', fontFamily: "'Noto Serif KR', serif" }}>
                       <StreamText text={stripJson(streamText, true)} isStreaming={true} />
                       <span className="cursor-blink" />
                     </div>
@@ -328,7 +389,7 @@ export default function Game() {
 
           {/* ── Input ── */}
           {!isDead && (
-            <div style={{ borderTop: '1px solid #1a1a28', background: 'rgba(10,10,16,0.98)', flexShrink: 0, padding: '0.875rem 1rem 0.5rem' }}>
+            <div style={{ borderTop: '1px solid #1a1a28', background: 'rgba(10,10,16,0.98)', flexShrink: 0, padding: '0.875rem 1rem 0.5rem', paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
               <div style={{ maxWidth: '46rem', margin: '0 auto' }}>
                 <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.625rem' }}>
                   <input
@@ -378,17 +439,30 @@ export default function Game() {
                   </p>
                 )}
 
-                {/* Format hint */}
+                {/* 행동 칩 */}
                 {game.character?.in_battle ? (
-                  <p style={{ textAlign: 'center', fontSize: '0.65rem', color: '#5a3a3a', marginTop: '0.5rem', letterSpacing: '0.02em' }}>
-                    <span style={{ color: '#ef4444', opacity: 0.7 }}>⚔ 전투 중</span>
-                    {' — '}
-                    {game.character.inventory?.slice(0, 3).map(item =>
-                      `**${item}를 사용한다**`
-                    ).join(' · ')}
-                    {' · '}
-                    <span style={{ color: '#c9a84c', opacity: 0.6 }}>**도망친다**</span>
-                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.5rem', justifyContent: 'center' }}>
+                    {[
+                      ...(game.character.inventory?.slice(0, 2).map(item => `**${item}를 사용한다**`) || []),
+                      '**공격한다**', '**방어 자세를 취한다**', '**도망친다**',
+                    ].map(action => (
+                      <button
+                        key={action}
+                        onClick={() => setInput(action)}
+                        style={{
+                          fontSize: '0.67rem', color: '#fca5a5',
+                          background: 'rgba(239,68,68,0.06)',
+                          border: '1px solid rgba(239,68,68,0.2)',
+                          borderRadius: '9999px', padding: '0.2rem 0.6rem',
+                          cursor: 'pointer', transition: 'all 0.15s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.14)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.45)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.06)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)' }}
+                      >
+                        {action.replace(/\*\*/g, '')}
+                      </button>
+                    ))}
+                  </div>
                 ) : (
                   <p style={{ textAlign: 'center', fontSize: '0.65rem', color: '#2e2e45', marginTop: '0.5rem', letterSpacing: '0.03em' }}>
                     <span style={{ color: '#c9a84c', opacity: 0.6 }}>**행동**</span>

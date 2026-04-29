@@ -3,6 +3,14 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { api } from '../lib/api'
 
+function timeAgo(iso) {
+  const diff = Math.floor((Date.now() - new Date(iso)) / 1000)
+  if (diff < 60) return '방금 전'
+  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`
+  return `${Math.floor(diff / 86400)}일 전`
+}
+
 export default function Dashboard() {
   const user     = useAuthStore(s => s.user)
   const setUser  = useAuthStore(s => s.setUser)
@@ -265,6 +273,10 @@ export default function Dashboard() {
                     </div>
                     <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
                       {game.character?.name} · {game.character?.class} · <span style={{ fontFamily: 'monospace' }}>{game.turn_count}</span>턴
+                    </p>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--muted)', opacity: 0.6, marginTop: '0.1rem' }}>
+                      {game.character?.location && <span>📍 {game.character.location} &nbsp;·&nbsp; </span>}
+                      {timeAgo(game.last_played)}
                     </p>
                   </div>
 
