@@ -127,11 +127,7 @@ NPC는 플레이어의 말과 행동에 따라 태도가 바뀌고 숨겨진 감
 
 ## 위치
 {location}
-
-{weather_time_section}
-{npc_section}
-{location_section}
-
+{extra_sections}
 ## 출력 형식
 이야기를 먼저 쓰고(3~5문단), 마지막에 JSON 블록을 붙이세요:
 
@@ -281,15 +277,19 @@ def build_system_prompt(game) -> str:
     character = json.loads(game.character_json)
     hardcore_inst = HARDCORE_ON_INST if game.hardcore_mode else HARDCORE_OFF_INST
     genre = _detect_genre(world.get("description", ""))
+    parts = [s for s in [
+        _format_weather_time(world),
+        _format_npcs(world),
+        _format_locations(world),
+    ] if s]
+    extra_sections = ("\n\n" + "\n\n".join(parts) + "\n") if parts else "\n"
     return SYSTEM_TEMPLATE.format(
         world_description=world.get("description", ""),
         genre_style=_GENRE_STYLE_BLOCKS[genre],
         hardcore_instruction=hardcore_inst,
         character_json=json.dumps(character, ensure_ascii=False, indent=2),
         location=character.get("location", "알 수 없는 장소"),
-        weather_time_section=_format_weather_time(world),
-        npc_section=_format_npcs(world),
-        location_section=_format_locations(world),
+        extra_sections=extra_sections,
     )
 
 
@@ -323,7 +323,7 @@ async def stream_action(game, histories: list, player_input: str):
         stream = await async_client.chat.completions.create(
             model=GM_MODEL,
             messages=groq_messages,
-            max_tokens=1024,
+            max_tokens=1400,
             stream=True,
         )
         async for chunk in stream:
@@ -417,7 +417,7 @@ def generate_opening(world_description: str, character_name: str, character_clas
         )
         response = client.chat.completions.create(
             model=OPENING_MODEL,
-            max_tokens=512,
+            max_tokens=768,
             messages=[{"role": "user", "content": prompt}],
         )
         return sanitize_korean(response.choices[0].message.content)

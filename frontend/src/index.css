@@ -91,6 +91,12 @@ html, body, #root {
 .orb-float { animation: float 6s ease-in-out infinite; }
 .orb-float-slow { animation: float 9s ease-in-out infinite; }
 
+/* Battle pulse */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
 /* GM streaming cursor */
 @keyframes blink {
   0%, 100% { opacity: 1; }

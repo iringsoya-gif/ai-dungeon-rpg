@@ -105,6 +105,7 @@ export default function Game() {
   const { streaming, streamError, lastAction, sendAction, retry, cancel } = useStream()
   const { enabled: bgmEnabled, toggle: bgmToggle, start: bgmStart, setMood, volume, setVolume } = useBGM()
   const bgmStarted = useRef(false)
+  const inputRef = useRef(null)
   const [input, setInput]             = useState('')
   const [showSheet, setShowSheet]     = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
@@ -146,15 +147,19 @@ export default function Game() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [histories, streamText])
 
-  // 저장 완료 피드백
+  // 스트리밍 종료: 저장 표시 + 입력창 자동 포커스
   const prevStreaming = useRef(false)
   useEffect(() => {
-    if (prevStreaming.current && !streaming && !streamError) {
-      setSaved(true)
-      const t = setTimeout(() => setSaved(false), 2000)
-      return () => clearTimeout(t)
+    let t
+    if (prevStreaming.current && !streaming) {
+      inputRef.current?.focus()
+      if (!streamError) {
+        setSaved(true)
+        t = setTimeout(() => setSaved(false), 2000)
+      }
     }
     prevStreaming.current = streaming
+    return () => clearTimeout(t)
   }, [streaming, streamError])
 
   // BGM mood: switch by battle state
@@ -261,7 +266,7 @@ export default function Game() {
               value={volume}
               onChange={e => setVolume(parseFloat(e.target.value))}
               title={`볼륨: ${Math.round(volume * 100)}%`}
-              style={{ width: '3.5rem', accentColor: '#9d7fe8', cursor: 'pointer', height: '0.25rem' }}
+              style={{ width: '5rem', accentColor: '#9d7fe8', cursor: 'pointer' }}
             />
           )}
         </div>
@@ -487,10 +492,10 @@ export default function Game() {
                     <span style={{ fontSize: '0.6rem', color: '#5a4a80', letterSpacing: '0.1em', display: 'block', marginBottom: '0.5rem', fontFamily: 'monospace' }}>
                       GAME MASTER
                     </span>
-                    <div style={{ fontSize: FONT_SIZE[fontSize], color: '#ddd8f0', lineHeight: 1.95, whiteSpace: 'pre-wrap', fontFamily: "'Noto Serif KR', serif" }}>
-                      <StreamText text={stripJson(streamText, true)} isStreaming={true} />
+                    <p style={{ fontSize: FONT_SIZE[fontSize], color: '#ddd8f0', lineHeight: 1.95, margin: '0.3rem 0', whiteSpace: 'pre-wrap', fontFamily: "'Noto Serif KR', serif" }}>
+                      <StreamText text={stripJson(streamText, true)} />
                       <span className="cursor-blink" />
-                    </div>
+                    </p>
                   </div>
                 </div>
               )}
@@ -558,6 +563,7 @@ export default function Game() {
               <div style={{ maxWidth: '46rem', margin: '0 auto' }}>
                 <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.625rem' }}>
                   <input
+                    ref={inputRef}
                     value={input}
                     onChange={e => { setInput(e.target.value.slice(0, 500)); historyIdxRef.current = -1 }}
                     onKeyDown={e => {

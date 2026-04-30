@@ -253,7 +253,7 @@ export default function StatusPanel({ character, world, onOpenSheet }) {
       {(inventory?.length > 0) && (
         <div>
           <p style={{ color: 'var(--muted)', marginBottom: '0.375rem', letterSpacing: '0.06em', fontSize: '0.65rem' }}>
-            ⚔ 인벤토리 ({inventory.length})
+            ◈ 인벤토리 ({inventory.length})
           </p>
           <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             {inventory.map((item, i) => (

@@ -2,32 +2,31 @@ import { useRef, useCallback, useState, useEffect } from 'react'
 
 // 실제 음악 파일 URL을 여기에 넣으면 파일 기반 재생으로 전환됩니다.
 // null이면 Web Audio API로 앰비언트 사운드를 생성합니다.
-// 무료 BGM: pixabay.com/music, opengameart.org, freemusicarchive.org
 const TRACKS = {
   calm:     null,
   battle:   null,
   gameover: null,
 }
 
-// Web Audio 합성 설정 (파일 없을 때 대체)
+// gain은 volume=1.0 기준 최대치. volume 0~1 곱셈으로 실제 출력 결정.
 const SYNTH = {
   calm: {
-    notes: [110.0, 130.8, 164.8], // A2-C3-E3 (A단조)
+    notes: [110.0, 130.8, 164.8],
     type: 'sine',
     lfoRate: 0.05, lfoDepth: 70,
-    filterFreq: 480, gain: 0.038,
+    filterFreq: 480, gain: 0.076,
   },
   battle: {
-    notes: [164.8, 196.0, 246.9], // E3-G3-B3 (E단조), 더 높고 긴박하게
+    notes: [164.8, 196.0, 246.9],
     type: 'sawtooth',
     lfoRate: 0.45, lfoDepth: 280,
-    filterFreq: 1300, gain: 0.028,
+    filterFreq: 1300, gain: 0.056,
   },
   gameover: {
-    notes: [73.4, 87.3, 98.0], // D2-F2-G2 (D단조), 낮고 무겁게
+    notes: [73.4, 87.3, 98.0],
     type: 'sine',
     lfoRate: 0.022, lfoDepth: 25,
-    filterFreq: 320, gain: 0.035,
+    filterFreq: 320, gain: 0.070,
   },
 }
 
@@ -53,14 +52,15 @@ export function useBGM() {
     return isNaN(saved) ? 0.5 : Math.max(0, Math.min(1, saved))
   })
 
-  const enabledRef  = useRef(enabled)
-  const volumeRef   = useRef(volume)
-  const moodRef     = useRef('calm')
-  const ctxRef      = useRef(null)
-  const masterRef   = useRef(null)
-  const audioRef    = useRef(null)
-  const nodesRef    = useRef([])
-  const startedRef  = useRef(false)
+  const enabledRef   = useRef(enabled)
+  const volumeRef    = useRef(volume)
+  const moodRef      = useRef('calm')
+  const ctxRef       = useRef(null)
+  const masterRef    = useRef(null)
+  const audioRef     = useRef(null)
+  const nodesRef     = useRef([])
+  const startedRef   = useRef(false)
+  const audioFadeRef = useRef(null)
 
   useEffect(() => { enabledRef.current = enabled }, [enabled])
   useEffect(() => { volumeRef.current = volume }, [volume])
@@ -129,9 +129,11 @@ export function useBGM() {
     const ctx = getCtx()
     if (ctx.state === 'suspended') ctx.resume()
 
-    const cfg  = SYNTH[initialMood]
-    const gain = enabledRef.current ? (cfg?.gain ?? 0.04) * (volumeRef.current * 2) : 0
-    masterRef.current.gain.setValueAtTime(gain, ctx.currentTime)
+    const cfg        = SYNTH[initialMood]
+    const targetGain = enabledRef.current ? (cfg?.gain ?? 0.08) * volumeRef.current : 0
+    // fade-in from silence to avoid click/pop
+    masterRef.current.gain.setValueAtTime(0, ctx.currentTime)
+    masterRef.current.gain.linearRampToValueAtTime(targetGain, ctx.currentTime + 2.0)
 
     const url = TRACKS[initialMood]
     if (url) {
@@ -162,16 +164,17 @@ export function useBGM() {
     const now = ctx.currentTime
     master.gain.linearRampToValueAtTime(0, now + 1.5)
 
-    // fade out audio file too
+    // fade out audio file — clear any existing fade interval first
     if (audioRef.current) {
       const audio = audioRef.current
       const steps = 15
       let step = 0
       const startVol = audio.volume
-      const fadeId = setInterval(() => {
+      if (audioFadeRef.current) { clearInterval(audioFadeRef.current); audioFadeRef.current = null }
+      audioFadeRef.current = setInterval(() => {
         step++
         audio.volume = Math.max(0, startVol * (1 - step / steps))
-        if (step >= steps) clearInterval(fadeId)
+        if (step >= steps) { clearInterval(audioFadeRef.current); audioFadeRef.current = null }
       }, 100)
     }
 
@@ -192,7 +195,7 @@ export function useBGM() {
       } else {
         if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
         playSynth(newMood, ctxRef.current, master)
-        const targetGain = enabledRef.current ? (cfg?.gain ?? 0.04) * (volumeRef.current * 2) : 0
+        const targetGain = enabledRef.current ? (cfg?.gain ?? 0.08) * volumeRef.current : 0
         master.gain.setValueAtTime(0, ctxRef.current.currentTime)
         master.gain.linearRampToValueAtTime(targetGain, ctxRef.current.currentTime + 1.5)
       }
@@ -208,7 +211,7 @@ export function useBGM() {
       if (masterRef.current && ctxRef.current) {
         const cfg = SYNTH[moodRef.current]
         masterRef.current.gain.linearRampToValueAtTime(
-          next ? (cfg?.gain ?? 0.04) * (volumeRef.current * 2) : 0,
+          next ? (cfg?.gain ?? 0.08) * volumeRef.current : 0,
           ctxRef.current.currentTime + 0.4
         )
       }
@@ -228,7 +231,7 @@ export function useBGM() {
     if (masterRef.current && ctxRef.current && enabledRef.current) {
       const cfg = SYNTH[moodRef.current]
       masterRef.current.gain.linearRampToValueAtTime(
-        (cfg?.gain ?? 0.04) * (clamped * 2),
+        (cfg?.gain ?? 0.08) * clamped,
         ctxRef.current.currentTime + 0.1
       )
     }
@@ -239,6 +242,7 @@ export function useBGM() {
 
   useEffect(() => {
     return () => {
+      if (audioFadeRef.current) clearInterval(audioFadeRef.current)
       stopSynth()
       ctxRef.current?.close()
       if (audioRef.current) { audioRef.current.pause() }
