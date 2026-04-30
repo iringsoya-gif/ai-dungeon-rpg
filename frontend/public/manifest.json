@@ -1,0 +1,18 @@
+{
+  "name": "AI Dungeon RPG",
+  "short_name": "AI RPG",
+  "description": "AI 게임마스터 웹소설 RPG — 당신의 이야기를 써내려가세요",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a10",
+  "theme_color": "#9d7fe8",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

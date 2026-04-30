@@ -1,4 +1,5 @@
 import json
+import re
 import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -192,8 +193,23 @@ def list_games(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    games = db.query(Game).filter(Game.user_id == current_user.id).all()
-    return [_game_to_dict(g) for g in games]
+    games = db.query(Game).filter(Game.user_id == current_user.id).order_by(Game.last_played.desc()).all()
+    result = []
+    for g in games:
+        d = _game_to_dict(g)
+        last_gm = (
+            db.query(History)
+            .filter(History.game_id == g.id, History.role == "gm")
+            .order_by(History.turn.desc())
+            .first()
+        )
+        if last_gm:
+            clean = re.sub(r'```json[\s\S]*?```', '', last_gm.content).strip()
+            d["last_message"] = clean[:140] if clean else None
+        else:
+            d["last_message"] = None
+        result.append(d)
+    return result
 
 
 @router.get("/{game_id}")

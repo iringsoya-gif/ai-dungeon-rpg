@@ -79,13 +79,17 @@ export function useStream() {
               return  // 에러 수신 즉시 중단
             }
             if (data.done) {
-              if (data.character) updateCharacter(data.character)
-              if (data.world) updateWorld(data.world)
-              if (data.snapshot_turn !== undefined) updateSnapshotTurn(data.snapshot_turn)
-              if (data.game_status) updateGameStatus(data.game_status)
-              if (gmText.trim()) {
-                addHistory({ role: 'player', content: actionText })
-                addHistory({ role: 'gm', content: gmText })
+              // Guard: skip if user navigated to a different game while streaming
+              const currentId = useGameStore.getState().game?.id
+              if (currentId === gameId) {
+                if (data.character) updateCharacter(data.character)
+                if (data.world) updateWorld(data.world)
+                if (data.snapshot_turn !== undefined) updateSnapshotTurn(data.snapshot_turn)
+                if (data.game_status) updateGameStatus(data.game_status)
+                if (gmText.trim()) {
+                  addHistory({ role: 'player', content: actionText })
+                  addHistory({ role: 'gm', content: gmText })
+                }
               }
             }
           } catch { /* incomplete JSON */ }

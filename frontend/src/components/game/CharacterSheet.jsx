@@ -27,7 +27,7 @@ function StatBar({ label, value, max, color }) {
   )
 }
 
-export default function CharacterSheet({ character, onClose }) {
+export default function CharacterSheet({ character, visitedLocations = [], onClose }) {
   if (!character) return null
   const { name, class: cls, background, level, xp, xp_to_next, stats, inventory, quests, quest_details, status_effects, location } = character
   const xpPct = Math.min(100, ((xp || 0) / (xp_to_next || 100)) * 100)
@@ -99,6 +99,23 @@ export default function CharacterSheet({ character, onClose }) {
         <div>
           <p style={{ fontSize: '0.6rem', color: '#5a5570', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>◈ 현재 위치</p>
           <p style={{ color: '#a09ab8', fontSize: '0.8rem', fontStyle: 'italic' }}>{location || '???'}</p>
+          {visitedLocations.length > 1 && (
+            <div style={{ marginTop: '0.5rem' }}>
+              <p style={{ fontSize: '0.58rem', color: '#3a3a50', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>방문한 장소 ({visitedLocations.length})</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                {visitedLocations.map((loc, i) => (
+                  <span key={i} style={{
+                    fontSize: '0.62rem', color: loc === location ? '#c9a84c' : '#4a4a60',
+                    background: loc === location ? 'rgba(201,168,76,0.08)' : 'transparent',
+                    border: `1px solid ${loc === location ? 'rgba(201,168,76,0.3)' : '#1e1e30'}`,
+                    borderRadius: '0.25rem', padding: '0.1rem 0.4rem',
+                  }}>
+                    {loc}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Status effects */}

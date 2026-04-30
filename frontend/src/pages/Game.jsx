@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
 import { api } from '../lib/api'
@@ -7,6 +7,7 @@ import { useBGM } from '../hooks/useBGM'
 import StreamText from '../components/ui/StreamText'
 import StatusPanel from '../components/game/StatusPanel'
 import CharacterSheet from '../components/game/CharacterSheet'
+import ConfirmModal from '../components/ui/ConfirmModal'
 
 /* **행동** → gold italic / 일반 텍스트 → 대사 */
 function renderPlayerMsg(text) {
@@ -101,7 +102,7 @@ function GmContent({ raw, fontSize, FONT_SIZE }) {
 export default function Game() {
   const { id }    = useParams()
   const navigate  = useNavigate()
-  const { game, histories, streamText, setGame } = useGameStore()
+  const { game, histories, streamText, setGame, levelUpNotif, clearLevelUp, visitedLocations } = useGameStore()
   const { streaming, streamError, lastAction, sendAction, retry, cancel } = useStream()
   const { enabled: bgmEnabled, toggle: bgmToggle, start: bgmStart, setMood, volume, setVolume } = useBGM()
   const bgmStarted = useRef(false)
@@ -116,11 +117,19 @@ export default function Game() {
   const [summaryText, setSummaryText] = useState('')
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [feedbackTick, setFeedbackTick] = useState(0)
+  const [lastSavedAt, setLastSavedAt]   = useState(null)
+  const [savedLabel, setSavedLabel]     = useState('')
+  const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', onConfirm: null, danger: false })
   const bottomRef      = useRef(null)
   const inputHistoryRef = useRef([])
   const historyIdxRef   = useRef(-1)
 
   const FONT_SIZE = { sm: '0.82rem', md: '0.9rem', lg: '1.05rem' }
+
+  const openConfirm = useCallback((title, message, onConfirm, danger = false) => {
+    setConfirmModal({ open: true, title, message, onConfirm, danger })
+  }, [])
+  const closeConfirm = useCallback(() => setConfirmModal(m => ({ ...m, open: false })), [])
 
   const copyStoryLink = () => {
     navigator.clipboard.writeText(`${window.location.origin}/story/${id}`)
@@ -147,13 +156,15 @@ export default function Game() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [histories, streamText])
 
-  // 스트리밍 종료: 저장 표시 + 입력창 자동 포커스
+  // 스트리밍 종료: 저장 시간 기록 + 입력창 자동 포커스
   const prevStreaming = useRef(false)
   useEffect(() => {
     let t
     if (prevStreaming.current && !streaming) {
       inputRef.current?.focus()
       if (!streamError) {
+        const now = Date.now()
+        setLastSavedAt(now)
         setSaved(true)
         t = setTimeout(() => setSaved(false), 2000)
       }
@@ -161,6 +172,27 @@ export default function Game() {
     prevStreaming.current = streaming
     return () => clearTimeout(t)
   }, [streaming, streamError])
+
+  // 저장 레이블 상대 시간 업데이트
+  useEffect(() => {
+    if (!lastSavedAt) return
+    const update = () => {
+      const sec = Math.floor((Date.now() - lastSavedAt) / 1000)
+      if (sec < 10)  { setSavedLabel('방금 저장'); return }
+      if (sec < 60)  { setSavedLabel(`${sec}초 전 저장`); return }
+      setSavedLabel(`${Math.floor(sec / 60)}분 전 저장`)
+    }
+    update()
+    const t = setInterval(update, 15000)
+    return () => clearInterval(t)
+  }, [lastSavedAt])
+
+  // 레벨업 알림 자동 해제
+  useEffect(() => {
+    if (!levelUpNotif) return
+    const t = setTimeout(clearLevelUp, 2700)
+    return () => clearTimeout(t)
+  }, [levelUpNotif, clearLevelUp])
 
   // BGM mood: switch by battle state
   useEffect(() => {
@@ -234,8 +266,8 @@ export default function Game() {
           </span>
         )}
 
-        <span style={{ marginLeft: 'auto', fontSize: '0.7rem', fontFamily: 'monospace', transition: 'color 0.3s', color: saved ? '#22c55e' : '#3a3a50' }}>
-          {saved ? '✓ 저장됨' : `T-${game.turn_count}`}
+        <span style={{ marginLeft: 'auto', fontSize: '0.7rem', fontFamily: 'monospace', transition: 'color 0.3s', color: saved ? '#22c55e' : lastSavedAt ? '#3a4a38' : '#3a3a50' }}>
+          {saved ? '✓ 저장됨' : lastSavedAt ? savedLabel : `T-${game.turn_count}`}
         </span>
 
         {/* 폰트 크기 조절 */}
@@ -281,13 +313,20 @@ export default function Game() {
         {/* Rollback button */}
         {!isDead && game?.snapshot_turn > 0 && (
           <button
-            onClick={async () => {
-              if (!confirm(`턴 ${game.snapshot_turn}으로 되돌리시겠습니까? 이후 기록이 삭제됩니다.`)) return
-              try {
-                const data = await api.rollbackGame(id)
-                setGame(data)
-              } catch (e) { alert(e?.detail || '롤백 실패') }
-            }}
+            onClick={() => openConfirm(
+              '롤백 확인',
+              `턴 ${game.snapshot_turn}으로 되돌리시겠습니까? 이후의 모든 기록이 삭제됩니다.`,
+              async () => {
+                closeConfirm()
+                try {
+                  const data = await api.rollbackGame(id)
+                  setGame(data)
+                } catch (e) {
+                  openConfirm('롤백 실패', e?.detail || '롤백에 실패했습니다', closeConfirm, false)
+                }
+              },
+              true
+            )}
             className="hidden md:block"
             title="이전 스냅샷으로 롤백"
             style={{ fontSize: '0.7rem', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '0.375rem', padding: '0.2rem 0.55rem', background: 'transparent', cursor: 'pointer' }}
@@ -333,13 +372,17 @@ export default function Game() {
 
         {!isDead && (
           <button
-            onClick={async () => {
-              if (!confirm('모험을 완료하시겠습니까?')) return
-              try {
-                const data = await api.completeGame(id)
-                navigate(`/games/${id}/over`, { state: { stats: data.stats, game: data } })
-              } catch { navigate('/dashboard') }
-            }}
+            onClick={() => openConfirm(
+              '모험 완료',
+              '지금까지의 모험을 마무리하시겠습니까? 결과 화면으로 이동합니다.',
+              async () => {
+                closeConfirm()
+                try {
+                  const data = await api.completeGame(id)
+                  navigate(`/games/${id}/over`, { state: { stats: data.stats, game: data } })
+                } catch { navigate('/dashboard') }
+              }
+            )}
             className="hidden md:block"
             style={{ fontSize: '0.7rem', color: '#4a4a60', border: '1px solid #1e1e2e', borderRadius: '0.375rem', padding: '0.2rem 0.55rem', background: 'transparent', cursor: 'pointer' }}
             onMouseEnter={e => { e.currentTarget.style.color = '#c9a84c'; e.currentTarget.style.borderColor = 'rgba(201,168,76,0.3)' }}
@@ -691,7 +734,34 @@ export default function Game() {
         </div>
       </div>
 
-      {showSheet && <CharacterSheet character={game?.character} onClose={() => setShowSheet(false)} />}
+      {showSheet && <CharacterSheet character={game?.character} visitedLocations={visitedLocations} onClose={() => setShowSheet(false)} />}
+
+      <ConfirmModal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={closeConfirm}
+        danger={confirmModal.danger}
+      />
+
+      {/* 레벨업 오버레이 */}
+      {levelUpNotif > 0 && (
+        <div
+          className="levelup-bg"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(201,168,76,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 150, pointerEvents: 'none' }}
+        >
+          <div className="levelup-anim" style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '3rem', color: '#c9a84c', textShadow: '0 0 40px rgba(201,168,76,0.9), 0 0 80px rgba(201,168,76,0.4)', lineHeight: 1 }}>✦</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#e8c96a', textShadow: '0 0 24px rgba(201,168,76,0.7)', marginTop: '0.5rem', letterSpacing: '0.12em' }}>
+              LEVEL UP
+            </div>
+            <div style={{ fontSize: '1.2rem', color: '#c9a84c', marginTop: '0.3rem', fontFamily: 'monospace', fontWeight: 700 }}>
+              Lv. {levelUpNotif}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary modal */}
       {showSummary && (

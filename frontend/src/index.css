@@ -118,3 +118,21 @@ html, body, #root {
   50%       { box-shadow: 0 0 14px rgba(201,168,76,0.9); }
 }
 .step-active { animation: stepPulse 1.8s ease-in-out infinite; }
+
+/* Level-up notification overlay */
+@keyframes levelup-in {
+  0%   { opacity: 0; transform: translateY(20px) scale(0.85); }
+  20%  { opacity: 1; transform: translateY(0)    scale(1.06); }
+  40%  { transform: scale(1); }
+  75%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-12px) scale(0.95); }
+}
+.levelup-anim { animation: levelup-in 2.6s cubic-bezier(0.22,1,0.36,1) forwards; }
+
+@keyframes levelup-bg {
+  0%   { opacity: 0; }
+  15%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+.levelup-bg { animation: levelup-bg 2.6s ease forwards; }

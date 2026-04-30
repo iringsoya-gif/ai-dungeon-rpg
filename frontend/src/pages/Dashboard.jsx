@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { api } from '../lib/api'
+import ConfirmModal from '../components/ui/ConfirmModal'
 
 function timeAgo(iso) {
   const diff = Math.floor((Date.now() - new Date(iso)) / 1000)
@@ -20,6 +21,7 @@ export default function Dashboard() {
   const [loading, setLoading]   = useState(true)
   const [syncing, setSyncing]   = useState(false)
   const [copiedId, setCopiedId] = useState(null)
+  const [modal, setModal]       = useState({ open: false, title: '', message: '', onConfirm: null, danger: false, alertOnly: false })
 
   const copyStory = (id) => {
     navigator.clipboard.writeText(`${window.location.origin}/story/${id}`)
@@ -34,6 +36,9 @@ export default function Dashboard() {
       .finally(() => setLoading(false))
   }, [])
 
+  const openAlert = (title, message) =>
+    setModal({ open: true, title, message, onConfirm: () => setModal(m => ({ ...m, open: false })), danger: false, alertOnly: true })
+
   const handleLogout = () => { logout(); navigate('/') }
 
   const handleSyncPlan = async () => {
@@ -43,26 +48,44 @@ export default function Dashboard() {
       if (res.upgraded) {
         const me = await api.getMe()
         setUser(me)
-        alert('영웅 플랜이 활성화되었습니다!')
+        openAlert('플랜 활성화', '영웅 플랜이 활성화되었습니다!')
       } else {
-        alert(`플랜 동기화 완료 (현재: ${res.plan})\n결제 내역이 확인되지 않았습니다.`)
+        openAlert('플랜 동기화 완료', `현재 플랜: ${res.plan}\n결제 내역이 확인되지 않았습니다.`)
       }
     } catch (e) {
-      alert('동기화 실패: ' + (e?.detail || String(e)))
+      openAlert('동기화 실패', e?.detail || String(e))
     }
     setSyncing(false)
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('이 게임을 삭제하시겠습니까?')) return
-    await api.deleteGame(id)
-    setGames(games.filter(g => g.id !== id))
+  const handleDelete = (id) => {
+    setModal({
+      open: true,
+      title: '게임 삭제',
+      message: '이 모험을 삭제하시겠습니까? 삭제된 데이터는 복구할 수 없습니다.',
+      onConfirm: async () => {
+        setModal(m => ({ ...m, open: false }))
+        await api.deleteGame(id)
+        setGames(gs => gs.filter(g => g.id !== id))
+      },
+      danger: true,
+      alertOnly: false,
+    })
   }
 
   const canCreate = user?.plan === 'paid' || games.filter(g => g.status === 'active').length < 1
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', color: 'var(--text)' }}>
+      <ConfirmModal
+        open={modal.open}
+        title={modal.title}
+        message={modal.message}
+        onConfirm={modal.onConfirm}
+        onCancel={() => setModal(m => ({ ...m, open: false }))}
+        danger={modal.danger}
+        alertOnly={modal.alertOnly}
+      />
 
       {/* Header */}
       <header style={{
@@ -278,6 +301,16 @@ export default function Dashboard() {
                       {game.character?.location && <span>📍 {game.character.location} &nbsp;·&nbsp; </span>}
                       {timeAgo(game.last_played)}
                     </p>
+                    {game.last_message && (
+                      <p style={{
+                        fontSize: '0.7rem', color: '#3a3a52', marginTop: '0.3rem',
+                        lineHeight: 1.5, fontStyle: 'italic',
+                        overflow: 'hidden', textOverflow: 'ellipsis',
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                      }}>
+                        "{game.last_message}"
+                      </p>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
