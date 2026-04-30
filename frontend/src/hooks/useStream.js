@@ -19,7 +19,7 @@ export function useStream() {
   const [streamError, setStreamError] = useState(null)
   const [lastAction, setLastAction] = useState(null)
   const abortRef = useRef(null)
-  const { appendStream, clearStream, updateCharacter, updateWorld, updateSnapshotTurn, addHistory } = useGameStore()
+  const { appendStream, clearStream, updateCharacter, updateWorld, updateSnapshotTurn, addHistory, updateGameStatus } = useGameStore()
 
   const _doStream = async (gameId, actionText, attempt = 0) => {
     const controller = new AbortController()
@@ -82,6 +82,7 @@ export function useStream() {
               if (data.character) updateCharacter(data.character)
               if (data.world) updateWorld(data.world)
               if (data.snapshot_turn !== undefined) updateSnapshotTurn(data.snapshot_turn)
+              if (data.game_status) updateGameStatus(data.game_status)
               if (gmText.trim()) {
                 addHistory({ role: 'player', content: actionText })
                 addHistory({ role: 'gm', content: gmText })

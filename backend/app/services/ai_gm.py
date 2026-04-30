@@ -15,7 +15,7 @@ HARDCORE_ON_INST  = "- 하드코어 모드: HP가 0이 되면 반드시 game_ove
 HARDCORE_OFF_INST = "- 일반 모드: HP가 0이 되면 game_over는 false를 유지하세요. 패널티는 서버가 처리합니다."
 
 
-# ─── 장르 감지 ──────────────────────────────────────────────────────────────
+# ─── 장르 감지 + 오프닝 스타일 ───────────────────────────────────────────────
 
 _GENRE_KEYWORDS = {
     "fantasy": ["마법", "검", "용", "왕국", "엘프", "드워프", "기사", "성", "중세", "마법사", "마나", "던전"],
@@ -29,6 +29,30 @@ def _detect_genre(description: str) -> str:
         if any(kw in description for kw in keywords):
             return genre
     return "modern"
+
+
+_OPENING_STYLE = {
+    "fantasy": (
+        "고풍스러운 판타지 서사체로 쓰세요. "
+        "마법·자연·신화 요소를 냄새·빛·소리 등 감각으로 표현하세요. "
+        "문장 리듬: 긴 문장 3개 뒤 짧은 문장 1개."
+    ),
+    "scifi": (
+        "간결하고 건조한 SF 단문체로 쓰세요. "
+        "기술 용어는 한국어화. ('바이저에 경보', '산소 잔량 62퍼센트') "
+        "침묵·정적·공허함을 적극 활용하세요."
+    ),
+    "horror": (
+        "극단적으로 짧은 문장만 쓰세요. "
+        "소리·냄새·촉감·온도 위주 묘사. 공포의 실체를 절대 직접 보여주지 마세요. "
+        "독자 혼자 상상하게 남겨두세요."
+    ),
+    "modern": (
+        "자연스러운 현대 구어체로 쓰세요. "
+        "독자가 이미 아는 공간(편의점, 골목, 사무실)에서 시작해 균열을 암시하세요. "
+        "영화 첫 장면처럼 선명한 현실감."
+    ),
+}
 
 
 # ─── 장르별 문체 블록 ────────────────────────────────────────────────────────
@@ -360,18 +384,16 @@ RPG 게임의 오프닝 장면을 소설의 첫 장처럼 써주세요.
 - 반드시 2인칭 "당신"으로만 서술하세요.
 - "나", "그", "그녀" 등 1인칭·3인칭 절대 사용 금지.
 
+## 장르 문체 (반드시 적용)
+{opening_style}
+
 ## 직업 반영
-캐릭터 직업({character_class})에 맞는 능력·습관·시선으로 서술하세요.
+캐릭터 직업({character_class})에 맞는 능력·습관·감각으로 서술하세요.
 
 ## 구성 (3~4문단, 반드시 이 순서)
-[1문단] 장소와 세계의 공기 — 빛·소리·냄새·온도 등 감각으로 시작
+[1문단] 장소와 세계의 공기 — 빛·소리·냄새·온도 등 감각으로 시작. 세계관의 분위기를 처음 한 문단에 압축.
 [2문단] 당신의 현재 순간 — 지금 어디서 무엇을 하고 있는지, 평범하고 조용한 한 순간
 [3~4문단] 모험의 씨앗 — 낯선 시선, 우연히 들은 소문, 오래된 기억 한 조각. "사건이 터진다"가 아니라 "뭔가 시작될 것 같다"는 여운으로 끝내기
-
-## 문체
-짧은 문장과 긴 문장을 섞어 리듬을 살리세요.
-나쁜 예: "당신은 마을 광장을 걸으며 주변을 둘러보았다."
-좋은 예: "돌바닥이 발 아래서 울렸다. 광장은 이른 아침부터 북적였다 — 하지만 당신의 눈은 자꾸 골목 어귀에 멈추었다."
 
 ## 절대 하지 말 것
 - 도난·추격·싸움·폭발 등 즉각적 사건 금지
@@ -409,11 +431,13 @@ async def generate_summary(game, histories: list) -> str:
 
 def generate_opening(world_description: str, character_name: str, character_class: str, character_background: str) -> str:
     try:
+        genre = _detect_genre(world_description)
         prompt = OPENING_PROMPT.format(
             world_description=world_description,
             character_name=character_name,
             character_class=character_class,
             character_background=character_background,
+            opening_style=_OPENING_STYLE[genre],
         )
         response = client.chat.completions.create(
             model=OPENING_MODEL,

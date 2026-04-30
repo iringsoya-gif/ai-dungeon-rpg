@@ -21,6 +21,9 @@ export const useGameStore = create((set) => ({
   updateSnapshotTurn: (snapshot_turn) =>
     set((s) => ({ game: s.game ? { ...s.game, snapshot_turn } : null })),
 
+  updateGameStatus: (status) =>
+    set((s) => ({ game: s.game ? { ...s.game, status } : null })),
+
   appendStream: (text) => set((s) => ({ streamText: s.streamText + text })),
   clearStream:  ()     => set({ streamText: '' }),
 }))

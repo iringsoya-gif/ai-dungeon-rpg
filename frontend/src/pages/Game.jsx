@@ -134,8 +134,8 @@ export default function Game() {
     localStorage.setItem('rpg-font-size', next)
   }
 
-  // 훅보다 먼저 정의해야 TDZ 에러 없음 (game은 null일 수 있으므로 optional chaining)
-  const isDead = game?.status === 'dead' || game?.status === 'completed'
+  const isDead   = game?.status === 'dead' || game?.status === 'completed'
+  const inBattle = !!game?.character?.in_battle
 
   useEffect(() => () => cancel(), [])
 
@@ -194,15 +194,22 @@ export default function Game() {
   )
 
   return (
-    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: '#0a0a10' }}>
+    <div style={{
+      height: '100dvh', display: 'flex', flexDirection: 'column', background: '#0a0a10',
+      transition: 'box-shadow 0.7s',
+      boxShadow: inBattle
+        ? 'inset 0 0 140px rgba(160,15,15,0.13), inset 0 0 60px rgba(160,15,15,0.07)'
+        : 'none',
+    }}>
 
       {/* ── Header ── */}
       <header style={{
         display: 'flex', alignItems: 'center', gap: '0.75rem',
         padding: '0.625rem 1.25rem',
-        background: 'rgba(10,10,16,0.95)',
-        borderBottom: '1px solid #1e1e2e',
+        background: inBattle ? 'rgba(14,8,8,0.97)' : 'rgba(10,10,16,0.95)',
+        borderBottom: `1px solid ${inBattle ? 'rgba(239,68,68,0.35)' : '#1e1e2e'}`,
         backdropFilter: 'blur(12px)',
+        transition: 'background 0.5s, border-color 0.5s',
         flexShrink: 0,
         zIndex: 10,
       }}>
@@ -361,10 +368,13 @@ export default function Game() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 1rem' }}>
             <div style={{ maxWidth: '46rem', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
-              {histories.map((h, i) => (
-                h.role === 'player' ? (
+              {histories.map((h, i) => {
+                const isLastGm = h.role === 'gm' && i === histories.length - 1 && inBattle
+                const hKey = h.turn ?? i
+                const fbStableKey = `fb-${id}-t${hKey}`
+                return h.role === 'player' ? (
                   /* ── Player bubble ── */
-                  <div key={i} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <div key={hKey} style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <div style={{
                       maxWidth: '28rem',
                       background: '#131828',
@@ -379,39 +389,43 @@ export default function Game() {
                   </div>
                 ) : (
                   /* ── GM bubble ── */
-                  <div key={i} style={{ display: 'flex', gap: '0.625rem', alignItems: 'flex-start' }}>
+                  <div key={hKey} style={{ display: 'flex', gap: '0.625rem', alignItems: 'flex-start' }}>
                     <div style={{
                       width: '2rem', height: '2rem', borderRadius: '50%', flexShrink: 0,
-                      background: 'linear-gradient(135deg, #1a1430, #2a1f50)',
-                      border: '1px solid #3a2e60',
+                      background: isLastGm
+                        ? 'linear-gradient(135deg, #2a0a0a, #4a1010)'
+                        : 'linear-gradient(135deg, #1a1430, #2a1f50)',
+                      border: `1px solid ${isLastGm ? 'rgba(239,68,68,0.55)' : '#3a2e60'}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '0.75rem', color: '#9d7fe8', marginTop: '0.125rem',
+                      fontSize: '0.75rem',
+                      color: isLastGm ? '#f87171' : '#9d7fe8',
+                      marginTop: '0.125rem',
+                      transition: 'background 0.4s, border-color 0.4s, color 0.4s',
                     }}>
-                      ✦
+                      {isLastGm ? '⚔' : '✦'}
                     </div>
                     <div style={{
                       flex: 1,
-                      background: '#111120',
-                      border: '1px solid #1e1e30',
+                      background: isLastGm ? 'rgba(20,8,8,0.95)' : '#111120',
+                      border: `1px solid ${isLastGm ? 'rgba(239,68,68,0.2)' : '#1e1e30'}`,
                       borderRadius: '0.25rem 1.25rem 1.25rem 1.25rem',
                       padding: '0.875rem 1.125rem',
+                      transition: 'background 0.4s, border-color 0.4s',
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                        <span style={{ fontSize: '0.6rem', color: '#5a4a80', letterSpacing: '0.1em', fontFamily: 'monospace' }}>
-                          GAME MASTER
+                        <span style={{ fontSize: '0.6rem', color: isLastGm ? '#7a3a3a' : '#5a4a80', letterSpacing: '0.1em', fontFamily: 'monospace', transition: 'color 0.4s' }}>
+                          {isLastGm ? 'GAME MASTER — ⚔ 전투' : 'GAME MASTER'}
                         </span>
                         <div style={{ display: 'flex', gap: '0.4rem' }}>
                           {/* Feedback */}
                           {[['👍', 1], ['👎', -1]].map(([emoji, val]) => {
-                            const fbKey = `fb-${id}-${i}`
-                            const fb = (() => { try { return parseInt(localStorage.getItem(fbKey)) } catch { return 0 } })()
+                            const fb = (() => { try { return parseInt(localStorage.getItem(fbStableKey)) } catch { return 0 } })()
                             return (
                               <button
                                 key={emoji}
                                 onClick={() => {
-                                  const fbKey2 = `fb-${id}-${i}`
-                                  const cur = (() => { try { return parseInt(localStorage.getItem(fbKey2)) } catch { return 0 } })()
-                                  localStorage.setItem(fbKey2, cur === val ? '0' : String(val))
+                                  const cur = (() => { try { return parseInt(localStorage.getItem(fbStableKey)) } catch { return 0 } })()
+                                  localStorage.setItem(fbStableKey, cur === val ? '0' : String(val))
                                   setFeedbackTick(t => t + 1)
                                 }}
                                 style={{
@@ -427,9 +441,7 @@ export default function Game() {
                           })}
                           {/* Copy */}
                           <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(stripJson(h.content))
-                            }}
+                            onClick={() => navigator.clipboard.writeText(stripJson(h.content))}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.6rem', color: '#3a3a50', padding: '0', transition: 'color 0.15s' }}
                             onMouseEnter={e => e.currentTarget.style.color = '#9d7fe8'}
                             onMouseLeave={e => e.currentTarget.style.color = '#3a3a50'}
@@ -443,7 +455,7 @@ export default function Game() {
                     </div>
                   </div>
                 )
-              ))}
+              })}
 
               {/* 스타터 액션 칩 — 첫 턴에만 표시 */}
               {histories.length === 1 && histories[0]?.role === 'gm' && !streaming && (
@@ -478,19 +490,25 @@ export default function Game() {
                 <div style={{ display: 'flex', gap: '0.625rem', alignItems: 'flex-start' }}>
                   <div style={{
                     width: '2rem', height: '2rem', borderRadius: '50%', flexShrink: 0,
-                    background: 'linear-gradient(135deg, #1a1430, #2a1f50)',
-                    border: '1px solid #3a2e60',
+                    background: inBattle
+                      ? 'linear-gradient(135deg, #2a0a0a, #4a1010)'
+                      : 'linear-gradient(135deg, #1a1430, #2a1f50)',
+                    border: `1px solid ${inBattle ? 'rgba(239,68,68,0.6)' : '#3a2e60'}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '0.75rem', color: '#9d7fe8',
+                    fontSize: '0.75rem',
+                    color: inBattle ? '#f87171' : '#9d7fe8',
+                    animation: inBattle ? 'pulse 1.2s infinite' : 'none',
                   }}>
-                    ✦
+                    {inBattle ? '⚔' : '✦'}
                   </div>
                   <div style={{
-                    flex: 1, background: '#111120', border: '1px solid #1e1e30',
+                    flex: 1,
+                    background: inBattle ? 'rgba(20,8,8,0.95)' : '#111120',
+                    border: `1px solid ${inBattle ? 'rgba(239,68,68,0.25)' : '#1e1e30'}`,
                     borderRadius: '0.25rem 1.25rem 1.25rem 1.25rem', padding: '0.875rem 1.125rem',
                   }}>
-                    <span style={{ fontSize: '0.6rem', color: '#5a4a80', letterSpacing: '0.1em', display: 'block', marginBottom: '0.5rem', fontFamily: 'monospace' }}>
-                      GAME MASTER
+                    <span style={{ fontSize: '0.6rem', color: inBattle ? '#7a3a3a' : '#5a4a80', letterSpacing: '0.1em', display: 'block', marginBottom: '0.5rem', fontFamily: 'monospace' }}>
+                      {inBattle ? 'GAME MASTER — ⚔ 전투' : 'GAME MASTER'}
                     </span>
                     <p style={{ fontSize: FONT_SIZE[fontSize], color: '#ddd8f0', lineHeight: 1.95, margin: '0.3rem 0', whiteSpace: 'pre-wrap', fontFamily: "'Noto Serif KR', serif" }}>
                       <StreamText text={stripJson(streamText, true)} />
@@ -559,7 +577,13 @@ export default function Game() {
 
           {/* ── Input ── */}
           {!isDead && (
-            <div style={{ borderTop: '1px solid #1a1a28', background: 'rgba(10,10,16,0.98)', flexShrink: 0, padding: '0.875rem 1rem 0.5rem', paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
+            <div style={{
+              borderTop: `1px solid ${inBattle ? 'rgba(239,68,68,0.3)' : '#1a1a28'}`,
+              background: inBattle ? 'rgba(14,8,8,0.98)' : 'rgba(10,10,16,0.98)',
+              flexShrink: 0, padding: '0.875rem 1rem 0.5rem',
+              paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))',
+              transition: 'border-color 0.5s, background 0.5s',
+            }}>
               <div style={{ maxWidth: '46rem', margin: '0 auto' }}>
                 <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.625rem' }}>
                   <input
@@ -604,7 +628,9 @@ export default function Game() {
                       padding: '0.75rem 1.125rem',
                       background: streaming || !input.trim()
                         ? '#111120'
-                        : 'linear-gradient(135deg, #6a3fa0, #9d7fe8)',
+                        : inBattle
+                          ? 'linear-gradient(135deg, #7a1515, #ef4444)'
+                          : 'linear-gradient(135deg, #6a3fa0, #9d7fe8)',
                       color: streaming || !input.trim() ? '#3a3a50' : '#fff',
                       borderRadius: '1.5rem',
                       fontWeight: 700, fontSize: '1rem',
