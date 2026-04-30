@@ -1,4 +1,10 @@
-export default function StatusPanel({ character, onOpenSheet }) {
+function attitudeIcon(v) {
+  if (v > 30)  return { icon: '❤', color: '#4ade80' }
+  if (v < -30) return { icon: '⚔', color: '#f87171' }
+  return { icon: '?', color: '#94a3b8' }
+}
+
+export default function StatusPanel({ character, world, onOpenSheet }) {
   if (!character) return null
   const { stats, inventory, quests, quest_details, location, level, xp, xp_to_next, in_battle, status_effects } = character
   if (!stats) return null
@@ -8,6 +14,11 @@ export default function StatusPanel({ character, onOpenSheet }) {
   const xpPct = Math.max(0, Math.min(100, ((xp || 0) / (xp_to_next || 100)) * 100))
 
   const hpColor = hpPct > 60 ? '#22c55e' : hpPct > 30 ? '#f59e0b' : '#ef4444'
+
+  const npcs      = world?.npcs      ? Object.entries(world.npcs)      : []
+  const locations = world?.locations ? Object.keys(world.locations)    : []
+  const timeOfDay = world?.time_of_day
+  const weather   = world?.weather
 
   return (
     <div
@@ -148,13 +159,69 @@ export default function StatusPanel({ character, onOpenSheet }) {
 
       <div style={{ height: '1px', background: 'var(--border)' }} />
 
-      {/* Location */}
+      {/* Location + weather/time */}
       <div>
         <p style={{ color: 'var(--muted)', marginBottom: '0.3rem', letterSpacing: '0.06em', fontSize: '0.65rem' }}>
           ◈ 현재 위치
         </p>
         <p style={{ color: 'var(--text)', fontStyle: 'italic', fontSize: '0.8rem' }}>{location || '???'}</p>
+        {(timeOfDay || weather) && (
+          <p style={{ color: 'var(--muted)', fontSize: '0.65rem', marginTop: '0.3rem' }}>
+            {[timeOfDay, weather].filter(Boolean).join(' · ')}
+          </p>
+        )}
       </div>
+
+      {/* NPC relations */}
+      {npcs.length > 0 && (
+        <div>
+          <p style={{ color: 'var(--muted)', marginBottom: '0.375rem', letterSpacing: '0.06em', fontSize: '0.65rem' }}>
+            ◈ NPC 관계
+          </p>
+          <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            {npcs.map(([name, info]) => {
+              const { icon, color } = attitudeIcon(info.attitude ?? 0)
+              return (
+                <li
+                  key={name}
+                  title={info.desc || ''}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem' }}
+                >
+                  <span style={{ color, flexShrink: 0 }}>{icon}</span>
+                  <span style={{ color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {name}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+
+      {/* Known locations */}
+      {locations.length > 0 && (
+        <div>
+          <p style={{ color: 'var(--muted)', marginBottom: '0.375rem', letterSpacing: '0.06em', fontSize: '0.65rem' }}>
+            ◈ 알려진 장소 ({locations.length})
+          </p>
+          <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            {locations.map((name) => (
+              <li
+                key={name}
+                style={{
+                  color: '#a89880',
+                  fontSize: '0.7rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                · {name}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Status effects */}
       {status_effects?.length > 0 && (

@@ -237,3 +237,26 @@ def test_mp_cannot_go_below_zero():
     changes = {"state_changes": {"mp_change": -9999}}
     result = apply_state_changes(c, changes)
     assert result["stats"]["mp"] == 0
+
+
+# --- weather/time 테스트 ---
+
+def test_world_time_of_day():
+    w = _base_world()
+    changes = {"world_changes": {"time_of_day": "밤"}}
+    result = apply_world_changes(w, changes)
+    assert result["time_of_day"] == "밤"
+
+
+def test_world_weather():
+    w = _base_world()
+    changes = {"world_changes": {"weather": "폭풍"}}
+    result = apply_world_changes(w, changes)
+    assert result["weather"] == "폭풍"
+
+
+def test_world_weather_overwrite():
+    w = {**_base_world(), "weather": "맑음"}
+    changes = {"world_changes": {"weather": "비"}}
+    result = apply_world_changes(w, changes)
+    assert result["weather"] == "비"

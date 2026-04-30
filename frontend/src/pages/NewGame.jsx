@@ -48,6 +48,30 @@ const CLASSES_BY_TEMPLATE = {
   ],
 }
 
+const PRESET_DESCRIPTIONS = {
+  '판타지': [
+    '고대 마법이 쇠퇴한 왕국. 암흑 마법사가 왕을 조종하고, 성 기사단이 비밀 결사와 싸운다. 숲 깊은 곳엔 아직 엘프들이 산다.',
+    '세 왕국이 오백 년 전쟁 중. 용이 중립을 지키며 하늘을 지배한다. 마법사 길드만이 진실을 알고 있다.',
+    '신들이 사라진 세계. 신전은 텅 비어 있고 마나가 고갈되기 시작했다. 마지막 마법사의 일기를 찾아야 한다.',
+  ],
+  'SF': [
+    '지구가 황폐화된 2387년. 인류는 콜로니 함선에서 살아간다. AI가 자아를 가지기 시작했다는 소문이 퍼진다.',
+    '은하 연방의 변방 행성. 기업들이 원주민을 착취하고, 반란군이 결성 중이다. 당신은 어느 편에 설 것인가.',
+    '사이버 도시 네오서울 2099. 인간과 안드로이드의 경계가 사라졌다. 연쇄 해킹 사건 뒤에 숨은 진실을 파헤쳐라.',
+  ],
+  '공포': [
+    '1980년대 미국 소도시. 아이들이 하나씩 사라지고 있다. 어른들은 모른다 — 혹은 모른 척한다.',
+    '빅토리아 시대 런던. 안개 속에서 살인마가 활동하고 있다. 하지만 피해자들은 모두 같은 악몽을 꿨다.',
+    '폐쇄된 연구소. 실험 기록이 삭제됐다. 비상구는 잠겨 있고, 무언가 아직 살아있다.',
+  ],
+  '현대': [
+    '서울 홍대 인근. 심야 도시에서 미스터리한 사건들이 연이어 발생한다. 경찰은 알 수 없는 이유로 덮으려 한다.',
+    '국제 스파이 세계. 신뢰할 수 있는 사람은 없고, 모두가 자신의 이익을 위해 움직인다. 당신의 임무는 단 하나.',
+    '현대 한국의 재벌가. 상속 분쟁과 기업 비밀, 그리고 오래된 가족의 어두운 과거가 얽혀 있다.',
+  ],
+  '커스텀': [],
+}
+
 const CUSTOM_CLASS_ID = '__custom__'
 
 const STEPS = ['세계관', '세계 설명', '캐릭터']
@@ -186,6 +210,35 @@ export default function NewGame() {
               <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '1rem' }}>
                 {template.icon} {template.label} — 원하는 대로 자유롭게 수정하세요
               </p>
+            )}
+            {/* Preset description chips */}
+            {template && PRESET_DESCRIPTIONS[template.label]?.length > 0 && (
+              <div style={{ marginBottom: '0.875rem' }}>
+                <p style={{ fontSize: '0.7rem', color: 'var(--muted)', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>
+                  ✦ 빠른 선택
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  {PRESET_DESCRIPTIONS[template.label].map((preset, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setWorldDesc(preset)}
+                      style={{
+                        textAlign: 'left', padding: '0.6rem 0.875rem',
+                        background: worldDesc === preset ? 'rgba(201,168,76,0.08)' : 'var(--surface)',
+                        border: `1px solid ${worldDesc === preset ? 'var(--gold)' : 'var(--border)'}`,
+                        borderRadius: '0.75rem', cursor: 'pointer',
+                        fontSize: '0.75rem', color: worldDesc === preset ? 'var(--gold-light)' : 'var(--muted)',
+                        lineHeight: 1.4, transition: 'all 0.2s',
+                      }}
+                      onMouseEnter={e => { if (worldDesc !== preset) { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.4)'; e.currentTarget.style.color = 'var(--text)' } }}
+                      onMouseLeave={e => { if (worldDesc !== preset) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)' } }}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
             <textarea
               value={worldDesc}

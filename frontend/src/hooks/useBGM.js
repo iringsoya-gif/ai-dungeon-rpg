@@ -48,8 +48,13 @@ function makeReverb(ctx) {
 export function useBGM() {
   const [enabled, setEnabled] = useState(() => localStorage.getItem('bgm') !== 'off')
   const [mood, setMoodState] = useState('calm')
+  const [volume, setVolumeState] = useState(() => {
+    const saved = parseFloat(localStorage.getItem('bgm_volume'))
+    return isNaN(saved) ? 0.5 : Math.max(0, Math.min(1, saved))
+  })
 
   const enabledRef  = useRef(enabled)
+  const volumeRef   = useRef(volume)
   const moodRef     = useRef('calm')
   const ctxRef      = useRef(null)
   const masterRef   = useRef(null)
@@ -58,6 +63,7 @@ export function useBGM() {
   const startedRef  = useRef(false)
 
   useEffect(() => { enabledRef.current = enabled }, [enabled])
+  useEffect(() => { volumeRef.current = volume }, [volume])
 
   const stopSynth = useCallback(() => {
     nodesRef.current.forEach(n => { try { n.stop() } catch {} })
@@ -124,14 +130,14 @@ export function useBGM() {
     if (ctx.state === 'suspended') ctx.resume()
 
     const cfg  = SYNTH[initialMood]
-    const gain = enabledRef.current ? (cfg?.gain ?? 0.04) : 0
+    const gain = enabledRef.current ? (cfg?.gain ?? 0.04) * (volumeRef.current * 2) : 0
     masterRef.current.gain.setValueAtTime(gain, ctx.currentTime)
 
     const url = TRACKS[initialMood]
     if (url) {
       const audio = new Audio(url)
       audio.loop = true
-      audio.volume = enabledRef.current ? 0.5 : 0
+      audio.volume = enabledRef.current ? volumeRef.current : 0
       audio.play().catch(() => {})
       audioRef.current = audio
       stopSynth()
@@ -178,7 +184,7 @@ export function useBGM() {
         if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
         const audio = new Audio(url)
         audio.loop = true
-        audio.volume = enabledRef.current ? 0.5 : 0
+        audio.volume = enabledRef.current ? volumeRef.current : 0
         audio.play().catch(() => {})
         audioRef.current = audio
         stopSynth()
@@ -186,7 +192,7 @@ export function useBGM() {
       } else {
         if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
         playSynth(newMood, ctxRef.current, master)
-        const targetGain = enabledRef.current ? (cfg?.gain ?? 0.04) : 0
+        const targetGain = enabledRef.current ? (cfg?.gain ?? 0.04) * (volumeRef.current * 2) : 0
         master.gain.setValueAtTime(0, ctxRef.current.currentTime)
         master.gain.linearRampToValueAtTime(targetGain, ctxRef.current.currentTime + 1.5)
       }
@@ -202,15 +208,33 @@ export function useBGM() {
       if (masterRef.current && ctxRef.current) {
         const cfg = SYNTH[moodRef.current]
         masterRef.current.gain.linearRampToValueAtTime(
-          next ? (cfg?.gain ?? 0.04) : 0,
+          next ? (cfg?.gain ?? 0.04) * (volumeRef.current * 2) : 0,
           ctxRef.current.currentTime + 0.4
         )
       }
       if (audioRef.current) {
-        audioRef.current.volume = next ? 0.5 : 0
+        audioRef.current.volume = next ? volumeRef.current : 0
       }
       return next
     })
+  }, [])
+
+  const setVolume = useCallback((v) => {
+    const clamped = Math.max(0, Math.min(1, v))
+    volumeRef.current = clamped
+    setVolumeState(clamped)
+    localStorage.setItem('bgm_volume', String(clamped))
+
+    if (masterRef.current && ctxRef.current && enabledRef.current) {
+      const cfg = SYNTH[moodRef.current]
+      masterRef.current.gain.linearRampToValueAtTime(
+        (cfg?.gain ?? 0.04) * (clamped * 2),
+        ctxRef.current.currentTime + 0.1
+      )
+    }
+    if (audioRef.current && enabledRef.current) {
+      audioRef.current.volume = clamped
+    }
   }, [])
 
   useEffect(() => {
@@ -221,5 +245,5 @@ export function useBGM() {
     }
   }, [stopSynth])
 
-  return { enabled, toggle, start, setMood, mood }
+  return { enabled, toggle, start, setMood, mood, volume, setVolume }
 }

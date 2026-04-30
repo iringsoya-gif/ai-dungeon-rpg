@@ -17,5 +17,7 @@ class Game(Base):
     turn_count     = Column(Integer, default=0)
     hardcore_mode  = Column(Boolean, default=False)
     status         = Column(String, default="active")  # active | dead | completed
+    snapshot_json  = Column(Text, nullable=True)
+    snapshot_turn  = Column(Integer, nullable=True)
     created_at     = Column(DateTime, default=datetime.utcnow)
     last_played    = Column(DateTime, default=datetime.utcnow)

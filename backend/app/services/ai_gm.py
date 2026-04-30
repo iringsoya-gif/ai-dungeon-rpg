@@ -128,6 +128,7 @@ NPC는 플레이어의 말과 행동에 따라 태도가 바뀌고 숨겨진 감
 ## 위치
 {location}
 
+{weather_time_section}
 {npc_section}
 {location_section}
 
@@ -151,7 +152,9 @@ NPC는 플레이어의 말과 행동에 따라 태도가 바뀌고 숨겨진 감
   }},
   "world_changes": {{
     "npcs": {{}},
-    "locations": {{}}
+    "locations": {{}},
+    "time_of_day": "아침|낮|저녁|밤 중 하나, 변화 없으면 생략",
+    "weather": "맑음|흐림|비|폭풍|안개 등, 변화 없으면 생략"
   }},
   "game_over": false
 }}
@@ -251,6 +254,17 @@ def _format_npcs(world: dict) -> str:
     return "\n".join(lines)
 
 
+def _format_weather_time(world: dict) -> str:
+    parts = []
+    if world.get("time_of_day"):
+        parts.append(f"시간대: {world['time_of_day']}")
+    if world.get("weather"):
+        parts.append(f"날씨: {world['weather']}")
+    if not parts:
+        return ""
+    return "## 현재 환경\n" + " | ".join(parts)
+
+
 def _format_locations(world: dict) -> str:
     locations = world.get("locations", {})
     if not locations:
@@ -273,6 +287,7 @@ def build_system_prompt(game) -> str:
         hardcore_instruction=hardcore_inst,
         character_json=json.dumps(character, ensure_ascii=False, indent=2),
         location=character.get("location", "알 수 없는 장소"),
+        weather_time_section=_format_weather_time(world),
         npc_section=_format_npcs(world),
         location_section=_format_locations(world),
     )
@@ -367,6 +382,29 @@ RPG 게임의 오프닝 장면을 소설의 첫 장처럼 써주세요.
 직업: {character_class}
 배경: {character_background}
 """
+
+
+async def generate_summary(game, histories: list) -> str:
+    """게임 히스토리를 AI로 요약해 압축 문단 반환"""
+    if not histories:
+        return ""
+    excerpt = "\n".join(
+        f"[{h.role}] {h.content[:200]}" for h in histories[-30:]
+    )
+    prompt = (
+        "다음 RPG 게임 대화를 한국어로 3~5문단 내러티브 요약으로 작성하세요. "
+        "주요 사건, 만난 NPC, 진행한 퀘스트, 현재 상황에 집중하세요. "
+        "JSON 블록 없이 순수 텍스트만.\n\n" + excerpt
+    )
+    try:
+        resp = await async_client.chat.completions.create(
+            model=GM_MODEL,
+            max_tokens=512,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return sanitize_korean(resp.choices[0].message.content)
+    except Exception:
+        return ""
 
 
 def generate_opening(world_description: str, character_name: str, character_class: str, character_background: str) -> str:

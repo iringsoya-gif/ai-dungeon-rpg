@@ -46,6 +46,10 @@ def apply_world_changes(world: dict, changes: dict) -> dict:
         for loc_name, loc_data in wc["locations"].items():
             existing = w.setdefault("locations", {}).get(loc_name, {})
             w["locations"][loc_name] = {**existing, **loc_data}
+    if "time_of_day" in wc:
+        w["time_of_day"] = wc["time_of_day"]
+    if "weather" in wc:
+        w["weather"] = wc["weather"]
     return w
 
 

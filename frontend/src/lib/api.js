@@ -38,6 +38,8 @@ export const api = {
   deleteGame:  (id)      => api.delete(`/games/${id}`),
   completeGame: (id)     => request(`/games/${id}/complete`, { method: 'POST' }).then(r => r.json()),
   getStory:    (id)      => fetch(`${API_URL}/games/${id}/story`).then(r => r.ok ? r.json() : Promise.reject(r.status)),
+  summarizeGame: (id)    => request(`/games/${id}/summary`, { method: 'POST' }).then(r => r.json()),
+  rollbackGame:  (id)    => request(`/games/${id}/rollback`, { method: 'POST' }).then(r => r.json()),
 
   // 결제
   checkout:       ()              => api.post('/payment/checkout').then(r => r.json()),

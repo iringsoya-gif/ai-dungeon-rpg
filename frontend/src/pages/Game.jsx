@@ -103,15 +103,20 @@ export default function Game() {
   const navigate  = useNavigate()
   const { game, histories, streamText, setGame } = useGameStore()
   const { streaming, streamError, lastAction, sendAction, retry, cancel } = useStream()
-  const { enabled: bgmEnabled, toggle: bgmToggle, start: bgmStart, setMood } = useBGM()
+  const { enabled: bgmEnabled, toggle: bgmToggle, start: bgmStart, setMood, volume, setVolume } = useBGM()
   const bgmStarted = useRef(false)
-  const [input, setInput]         = useState('')
-  const [showSheet, setShowSheet] = useState(false)
+  const [input, setInput]             = useState('')
+  const [showSheet, setShowSheet]     = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
-  const [copied, setCopied]       = useState(false)
-  const [saved, setSaved]         = useState(false)
-  const [fontSize, setFontSize]   = useState(() => localStorage.getItem('rpg-font-size') || 'md')
-  const bottomRef = useRef(null)
+  const [copied, setCopied]           = useState(false)
+  const [saved, setSaved]             = useState(false)
+  const [fontSize, setFontSize]       = useState(() => localStorage.getItem('rpg-font-size') || 'md')
+  const [showSummary, setShowSummary] = useState(false)
+  const [summaryText, setSummaryText] = useState('')
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const bottomRef      = useRef(null)
+  const inputHistoryRef = useRef([])
+  const historyIdxRef   = useRef(-1)
 
   const FONT_SIZE = { sm: '0.82rem', md: '0.9rem', lg: '1.05rem' }
 
@@ -168,6 +173,8 @@ export default function Game() {
     }
     const text = input.trim()
     setInput('')
+    inputHistoryRef.current = [text, ...inputHistoryRef.current.slice(0, 49)]
+    historyIdxRef.current = -1
     await sendAction(id, text)
   }
 
@@ -230,22 +237,76 @@ export default function Game() {
           <sup style={{ fontSize: '0.55rem' }}>{fontSize === 'sm' ? '소' : fontSize === 'md' ? '중' : '대'}</sup>
         </button>
 
-        {/* BGM toggle */}
-        <button
-          onClick={bgmToggle}
-          title={bgmEnabled ? 'BGM 끄기' : 'BGM 켜기'}
-          style={{
-            fontSize: '0.85rem',
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: bgmEnabled ? '#9d7fe8' : '#3a3a50',
-            padding: '0.1rem 0.2rem',
-            transition: 'color 0.2s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.color = bgmEnabled ? '#c0a0ff' : '#5a5a70'}
-          onMouseLeave={e => e.currentTarget.style.color = bgmEnabled ? '#9d7fe8' : '#3a3a50'}
-        >
-          {bgmEnabled ? '♪' : '♩'}
-        </button>
+        {/* BGM toggle + volume */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+          <button
+            onClick={bgmToggle}
+            title={bgmEnabled ? 'BGM 끄기' : 'BGM 켜기'}
+            style={{
+              fontSize: '0.85rem',
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: bgmEnabled ? '#9d7fe8' : '#3a3a50',
+              padding: '0.1rem 0.2rem',
+              transition: 'color 0.2s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = bgmEnabled ? '#c0a0ff' : '#5a5a70'}
+            onMouseLeave={e => e.currentTarget.style.color = bgmEnabled ? '#9d7fe8' : '#3a3a50'}
+          >
+            {bgmEnabled ? '♪' : '♩'}
+          </button>
+          {bgmEnabled && (
+            <input
+              type="range" min="0" max="1" step="0.05"
+              value={volume}
+              onChange={e => setVolume(parseFloat(e.target.value))}
+              title={`볼륨: ${Math.round(volume * 100)}%`}
+              style={{ width: '3.5rem', accentColor: '#9d7fe8', cursor: 'pointer', height: '0.25rem' }}
+            />
+          )}
+        </div>
+
+        {/* Rollback button */}
+        {!isDead && game?.snapshot_turn > 0 && (
+          <button
+            onClick={async () => {
+              if (!confirm(`턴 ${game.snapshot_turn}으로 되돌리시겠습니까? 이후 기록이 삭제됩니다.`)) return
+              try {
+                const data = await api.rollbackGame(id)
+                setGame(data)
+              } catch (e) { alert(e?.detail || '롤백 실패') }
+            }}
+            className="hidden md:block"
+            title="이전 스냅샷으로 롤백"
+            style={{ fontSize: '0.7rem', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '0.375rem', padding: '0.2rem 0.55rem', background: 'transparent', cursor: 'pointer' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.08)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            ↩ T{game.snapshot_turn}
+          </button>
+        )}
+
+        {/* Summary button */}
+        {!isDead && histories.length > 4 && (
+          <button
+            onClick={async () => {
+              setShowSummary(true)
+              if (!summaryText) {
+                setSummaryLoading(true)
+                try {
+                  const res = await api.summarizeGame(id)
+                  setSummaryText(res.summary)
+                } catch { setSummaryText('요약 생성 실패') }
+                finally { setSummaryLoading(false) }
+              }
+            }}
+            className="hidden md:block"
+            style={{ fontSize: '0.7rem', color: '#4a4a60', border: '1px solid #1e1e2e', borderRadius: '0.375rem', padding: '0.2rem 0.55rem', background: 'transparent', cursor: 'pointer' }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#9d7fe8'; e.currentTarget.style.borderColor = 'rgba(157,127,232,0.3)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = '#4a4a60'; e.currentTarget.style.borderColor = '#1e1e2e' }}
+          >
+            ≡ 요약
+          </button>
+        )}
 
         {isDead && (
           <button
@@ -329,9 +390,49 @@ export default function Game() {
                       borderRadius: '0.25rem 1.25rem 1.25rem 1.25rem',
                       padding: '0.875rem 1.125rem',
                     }}>
-                      <span style={{ fontSize: '0.6rem', color: '#5a4a80', letterSpacing: '0.1em', display: 'block', marginBottom: '0.5rem', fontFamily: 'monospace' }}>
-                        GAME MASTER
-                      </span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                        <span style={{ fontSize: '0.6rem', color: '#5a4a80', letterSpacing: '0.1em', fontFamily: 'monospace' }}>
+                          GAME MASTER
+                        </span>
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          {/* Feedback */}
+                          {[['👍', 1], ['👎', -1]].map(([emoji, val]) => {
+                            const fbKey = `fb-${id}-${i}`
+                            const fb = (() => { try { return parseInt(localStorage.getItem(fbKey)) } catch { return 0 } })()
+                            return (
+                              <button
+                                key={emoji}
+                                onClick={() => {
+                                  const fbKey2 = `fb-${id}-${i}`
+                                  const cur = (() => { try { return parseInt(localStorage.getItem(fbKey2)) } catch { return 0 } })()
+                                  localStorage.setItem(fbKey2, cur === val ? '0' : String(val))
+                                  setInput(input) // force re-render
+                                }}
+                                style={{
+                                  background: 'none', border: 'none', cursor: 'pointer',
+                                  fontSize: '0.65rem', opacity: fb === val ? 1 : 0.3,
+                                  padding: '0', transition: 'opacity 0.15s',
+                                }}
+                                title={val === 1 ? '좋아요' : '별로에요'}
+                              >
+                                {emoji}
+                              </button>
+                            )
+                          })}
+                          {/* Copy */}
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(stripJson(h.content))
+                            }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.6rem', color: '#3a3a50', padding: '0', transition: 'color 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.color = '#9d7fe8'}
+                            onMouseLeave={e => e.currentTarget.style.color = '#3a3a50'}
+                            title="복사"
+                          >
+                            ⎘
+                          </button>
+                        </div>
+                      </div>
                       <GmContent raw={h.content} fontSize={fontSize} FONT_SIZE={FONT_SIZE} />
                     </div>
                   </div>
@@ -457,9 +558,23 @@ export default function Game() {
                 <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.625rem' }}>
                   <input
                     value={input}
-                    onChange={e => setInput(e.target.value.slice(0, 500))}
+                    onChange={e => { setInput(e.target.value.slice(0, 500)); historyIdxRef.current = -1 }}
+                    onKeyDown={e => {
+                      const hist = inputHistoryRef.current
+                      if (e.key === 'ArrowUp' && hist.length > 0) {
+                        e.preventDefault()
+                        const next = Math.min(historyIdxRef.current + 1, hist.length - 1)
+                        historyIdxRef.current = next
+                        setInput(hist[next])
+                      } else if (e.key === 'ArrowDown') {
+                        e.preventDefault()
+                        const next = historyIdxRef.current - 1
+                        historyIdxRef.current = next
+                        setInput(next < 0 ? '' : hist[next])
+                      }
+                    }}
                     disabled={streaming}
-                    placeholder={streaming ? 'GM이 서술하는 중...' : '행동이나 대사를 입력하세요'}
+                    placeholder={streaming ? 'GM이 서술하는 중...' : '행동이나 대사를 입력하세요 (↑↓ 이전 입력)'}
                     style={{
                       flex: 1,
                       background: '#111120',
@@ -539,11 +654,78 @@ export default function Game() {
 
         {/* ── Sidebar ── */}
         <div className={`${showSidebar ? 'flex' : 'hidden'} md:flex flex-col`}>
-          <StatusPanel character={game.character} onOpenSheet={() => setShowSheet(true)} />
+          <StatusPanel character={game.character} world={game.world} onOpenSheet={() => setShowSheet(true)} />
         </div>
       </div>
 
       {showSheet && <CharacterSheet character={game?.character} onClose={() => setShowSheet(false)} />}
+
+      {/* Summary modal */}
+      {showSummary && (
+        <div
+          onClick={() => setShowSummary(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 50, padding: '1rem',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#12121e', border: '1px solid #2a2a40',
+              borderRadius: '1rem', padding: '1.5rem',
+              maxWidth: '34rem', width: '100%', maxHeight: '75vh',
+              display: 'flex', flexDirection: 'column', gap: '1rem',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontWeight: 700, color: '#c9a84c', fontSize: '0.9rem', letterSpacing: '0.05em' }}>
+                ≡ 모험 요약
+              </h3>
+              <button
+                onClick={() => setShowSummary(false)}
+                style={{ background: 'none', border: 'none', color: '#4a4a60', cursor: 'pointer', fontSize: '1.1rem', padding: 0 }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {summaryLoading ? (
+                <p style={{ color: '#4a4a60', fontSize: '0.85rem', textAlign: 'center', padding: '2rem' }}>
+                  AI가 요약을 작성하는 중...
+                </p>
+              ) : (
+                <p style={{ color: '#c8c4e0', fontSize: '0.875rem', lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: "'Noto Serif KR', serif" }}>
+                  {summaryText || '요약 내용이 없습니다.'}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={async () => {
+                setSummaryLoading(true)
+                setSummaryText('')
+                try {
+                  const res = await api.summarizeGame(id)
+                  setSummaryText(res.summary)
+                } catch { setSummaryText('요약 생성 실패') }
+                finally { setSummaryLoading(false) }
+              }}
+              disabled={summaryLoading}
+              style={{
+                fontSize: '0.75rem', color: '#9d7fe8',
+                border: '1px solid rgba(157,127,232,0.3)',
+                borderRadius: '0.5rem', padding: '0.4rem 1rem',
+                background: 'transparent', cursor: 'pointer', alignSelf: 'flex-end',
+                opacity: summaryLoading ? 0.5 : 1,
+              }}
+            >
+              ↺ 다시 요약
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

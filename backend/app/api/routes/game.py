@@ -15,7 +15,7 @@ from app.core.database import get_db
 from app.models.user import User
 from app.models.game import Game
 from app.models.history import History
-from app.services.ai_gm import stream_action, client as ai_client, generate_opening  # ai_client = Groq sync client
+from app.services.ai_gm import stream_action, client as ai_client, generate_opening, generate_summary
 from app.services.context_manager import context_mgr, estimate_tokens
 from app.services.state_manager import apply_state_changes, apply_death_penalty, apply_world_changes
 
@@ -32,6 +32,20 @@ class CreateGameRequest(BaseModel):
 
 class ActionRequest(BaseModel):
     text: str
+
+
+_INJECTION_PATTERNS = [
+    "ignore previous", "ignore all", "disregard", "forget instructions",
+    "system prompt", "new instructions", "pretend you are", "act as",
+    "you are now", "override", "jailbreak", "DAN", "do anything now",
+]
+
+
+def _check_injection(text: str):
+    lower = text.lower()
+    for pattern in _INJECTION_PATTERNS:
+        if pattern.lower() in lower:
+            raise HTTPException(400, "유효하지 않은 입력입니다")
 
 
 def _check_game_limit(user: User, db: Session):
@@ -103,15 +117,16 @@ def _build_initial_character(name: str, char_class: str, background: str) -> dic
 
 def _game_to_dict(game: Game) -> dict:
     return {
-        "id":           str(game.id),
-        "title":        game.title,
-        "status":       game.status,
+        "id":            str(game.id),
+        "title":         game.title,
+        "status":        game.status,
         "hardcore_mode": game.hardcore_mode,
-        "turn_count":   game.turn_count,
-        "character":    json.loads(game.character_json),
-        "world":        json.loads(game.world_json),
-        "created_at":   game.created_at.isoformat(),
-        "last_played":  game.last_played.isoformat(),
+        "turn_count":    game.turn_count,
+        "snapshot_turn": game.snapshot_turn,
+        "character":     json.loads(game.character_json),
+        "world":         json.loads(game.world_json),
+        "created_at":    game.created_at.isoformat(),
+        "last_played":   game.last_played.isoformat(),
     }
 
 
@@ -212,6 +227,7 @@ async def take_action(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _check_injection(req.text)
     game = _get_owned_game(game_id, current_user, db)
     if game.status != "active":
         raise HTTPException(400, "이미 종료된 게임입니다")
@@ -285,13 +301,24 @@ async def take_action(
                 pass
 
         game.character_json = json.dumps(character, ensure_ascii=False)
+
+        # 10턴마다 스냅샷 저장
+        if game.turn_count % 10 == 0:
+            world_now = json.loads(game.world_json)
+            game.snapshot_json = json.dumps({
+                "character": character,
+                "world": world_now,
+            }, ensure_ascii=False)
+            game.snapshot_turn = game.turn_count
+
         db.commit()
 
         # 컨텍스트 압축 (필요 시)
         all_histories = db.query(History).filter(History.game_id == game.id).all()
         await context_mgr.compress_if_needed(game, all_histories, db, ai_client)
 
-        yield f"data: {json.dumps({'done': True, 'state': state_changes, 'character': character, 'game_status': game.status})}\n\n"
+        world_state = json.loads(game.world_json)
+        yield f"data: {json.dumps({'done': True, 'state': state_changes, 'character': character, 'world': world_state, 'snapshot_turn': game.snapshot_turn, 'game_status': game.status})}\n\n"
 
     return StreamingResponse(
         generate(),
@@ -343,3 +370,46 @@ def complete_game(
 
     db.commit()
     return {**_game_to_dict(game), "stats": stats}
+
+
+@router.post("/{game_id}/summary")
+async def summarize_game(
+    game_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    game = _get_owned_game(game_id, current_user, db)
+    histories = db.query(History).filter(History.game_id == game.id).order_by(History.turn).all()
+    summary = await generate_summary(game, histories)
+    game.summary = summary
+    db.commit()
+    return {"summary": summary}
+
+
+@router.post("/{game_id}/rollback")
+def rollback_game(
+    game_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    game = _get_owned_game(game_id, current_user, db)
+    if not game.snapshot_json or game.snapshot_turn is None:
+        raise HTTPException(400, "저장된 스냅샷이 없습니다")
+
+    snapshot = json.loads(game.snapshot_json)
+    game.character_json = json.dumps(snapshot["character"], ensure_ascii=False)
+    game.world_json     = json.dumps(snapshot["world"], ensure_ascii=False)
+    game.turn_count     = game.snapshot_turn
+    game.status         = "active"
+
+    # 스냅샷 이후 히스토리 제거
+    db.query(History).filter(
+        History.game_id == game.id,
+        History.turn > game.snapshot_turn,
+    ).delete()
+    game.snapshot_json = None
+    game.snapshot_turn = None
+    db.commit()
+
+    histories = db.query(History).filter(History.game_id == game.id).order_by(History.turn).all()
+    return {**_game_to_dict(game), "histories": [_history_to_dict(h) for h in histories]}

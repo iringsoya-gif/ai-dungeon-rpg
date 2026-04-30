@@ -15,6 +15,12 @@ export const useGameStore = create((set) => ({
   updateCharacter: (character) =>
     set((s) => ({ game: s.game ? { ...s.game, character } : null })),
 
+  updateWorld: (world) =>
+    set((s) => ({ game: s.game ? { ...s.game, world } : null })),
+
+  updateSnapshotTurn: (snapshot_turn) =>
+    set((s) => ({ game: s.game ? { ...s.game, snapshot_turn } : null })),
+
   appendStream: (text) => set((s) => ({ streamText: s.streamText + text })),
   clearStream:  ()     => set({ streamText: '' }),
 }))
