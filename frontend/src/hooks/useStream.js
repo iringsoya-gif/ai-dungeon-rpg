@@ -5,6 +5,15 @@ import { API_URL, getToken } from '../lib/api'
 const MAX_RETRIES = 2
 const RETRY_DELAY_MS = 1000
 
+function friendlyError(status, detail) {
+  if (status === 429) return '요청이 너무 많습니다. 잠시 후 다시 시도해주세요. (분당 15회 제한)'
+  if (status === 401) return '로그인이 만료되었습니다. 새로고침 후 다시 시도해주세요.'
+  if (status === 400) return detail || '잘못된 요청입니다.'
+  if (status === 403) return detail || '접근 권한이 없습니다.'
+  if (status >= 500) return '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+  return detail || `오류가 발생했습니다 (${status})`
+}
+
 export function useStream() {
   const [streaming, setStreaming] = useState(false)
   const [streamError, setStreamError] = useState(null)
@@ -30,14 +39,21 @@ export function useStream() {
       if (!res.ok) {
         const body = await res.text()
         let detail
-        try { detail = JSON.parse(body) } catch { detail = body }
-        throw new Error(detail?.detail || `HTTP ${res.status}`)
+        try { detail = JSON.parse(body)?.detail } catch { detail = body }
+        // 429는 재시도 안 함
+        if (res.status === 429) {
+          clearStream()
+          setStreamError(friendlyError(429, detail))
+          return
+        }
+        throw new Error(friendlyError(res.status, detail))
       }
 
       const reader  = res.body.getReader()
       const decoder = new TextDecoder('utf-8', { fatal: false })
       let gmText = ''
       let buffer = ''
+      let errorReceived = false
 
       while (true) {
         const { done, value } = await reader.read()
@@ -59,22 +75,28 @@ export function useStream() {
             if (data.error) {
               clearStream()
               setStreamError(data.error)
+              errorReceived = true
+              return  // 에러 수신 즉시 중단
             }
             if (data.done) {
               if (data.character) updateCharacter(data.character)
               if (data.world) updateWorld(data.world)
               if (data.snapshot_turn !== undefined) updateSnapshotTurn(data.snapshot_turn)
-              addHistory({ role: 'player', content: actionText })
-              addHistory({ role: 'gm', content: gmText })
+              if (gmText.trim()) {
+                addHistory({ role: 'player', content: actionText })
+                addHistory({ role: 'gm', content: gmText })
+              }
             }
           } catch { /* incomplete JSON */ }
         }
+
+        if (errorReceived) break
       }
     } catch (err) {
       if (err.name === 'AbortError') return
 
-      // 네트워크 오류면 재시도
-      if (attempt < MAX_RETRIES) {
+      // 네트워크 오류 → 재시도 (429·4xx 제외)
+      if (attempt < MAX_RETRIES && !err.message.includes('요청이 너무')) {
         clearStream()
         await new Promise(r => setTimeout(r, RETRY_DELAY_MS))
         if (!abortRef.current?.signal.aborted) {

@@ -114,6 +114,7 @@ export default function Game() {
   const [showSummary, setShowSummary] = useState(false)
   const [summaryText, setSummaryText] = useState('')
   const [summaryLoading, setSummaryLoading] = useState(false)
+  const [feedbackTick, setFeedbackTick] = useState(0)
   const bottomRef      = useRef(null)
   const inputHistoryRef = useRef([])
   const historyIdxRef   = useRef(-1)
@@ -406,7 +407,7 @@ export default function Game() {
                                   const fbKey2 = `fb-${id}-${i}`
                                   const cur = (() => { try { return parseInt(localStorage.getItem(fbKey2)) } catch { return 0 } })()
                                   localStorage.setItem(fbKey2, cur === val ? '0' : String(val))
-                                  setInput(input) // force re-render
+                                  setFeedbackTick(t => t + 1)
                                 }}
                                 style={{
                                   background: 'none', border: 'none', cursor: 'pointer',

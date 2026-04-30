@@ -34,25 +34,28 @@ class ContextManager:
 
         return messages
 
-    async def compress_if_needed(self, game, histories: list, db, ai_client) -> None:
-        """토큰 초과 시 Claude로 요약 생성 후 game.summary 업데이트"""
+    async def compress_if_needed(self, game, histories: list, db, async_client) -> None:
+        """토큰 초과 시 요약 생성 후 game.summary 업데이트 (non-blocking)"""
         if not self.needs_compression(histories):
             return
 
         old_histories = list(histories)[:-MAX_RECENT]
         old_content = "\n".join(
-            f"{'플레이어' if h.role == 'player' else 'GM'}: {h.content}"
+            f"{'플레이어' if h.role == 'player' else 'GM'}: {h.content[:300]}"
             for h in old_histories
         )
         summary_prompt = f"다음 RPG 게임 기록을 3~5문장으로 요약하세요:\n\n{old_content}"
 
-        response = ai_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            max_tokens=512,
-            messages=[{"role": "user", "content": summary_prompt}],
-        )
-        game.summary = response.choices[0].message.content
-        db.commit()
+        try:
+            response = await async_client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                max_tokens=512,
+                messages=[{"role": "user", "content": summary_prompt}],
+            )
+            game.summary = response.choices[0].message.content
+            db.commit()
+        except Exception:
+            pass  # 요약 실패해도 게임 진행은 유지
 
 
 context_mgr = ContextManager()

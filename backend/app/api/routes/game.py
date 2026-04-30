@@ -15,7 +15,7 @@ from app.core.database import get_db
 from app.models.user import User
 from app.models.game import Game
 from app.models.history import History
-from app.services.ai_gm import stream_action, client as ai_client, generate_opening, generate_summary
+from app.services.ai_gm import stream_action, async_client, generate_opening, generate_summary
 from app.services.context_manager import context_mgr, estimate_tokens
 from app.services.state_manager import apply_state_changes, apply_death_penalty, apply_world_changes
 
@@ -264,7 +264,11 @@ async def take_action(
         ))
         game.turn_count += 1
 
-        # GM 응답 저장
+        # GM 응답 저장 (빈 응답이면 저장 생략)
+        if not full_response.strip():
+            yield f"data: {json.dumps({'error': 'GM 응답이 비어있습니다. 다시 시도해주세요.'})}\n\n"
+            return
+
         db.add(History(
             game_id=game.id,
             turn=game.turn_count,
@@ -292,9 +296,12 @@ async def take_action(
             pass
 
         # 게임오버 처리
-        if state_changes.get("game_over") and game.hardcore_mode:
+        game_over = state_changes.get("game_over", False)
+        hp_zero   = character["stats"]["hp"] == 0
+
+        if game_over or (hp_zero and game.hardcore_mode):
             game.status = "dead"
-        elif character["stats"]["hp"] == 0 and not game.hardcore_mode:
+        elif hp_zero and not game.hardcore_mode:
             try:
                 character = apply_death_penalty(character)
             except Exception:
@@ -302,8 +309,8 @@ async def take_action(
 
         game.character_json = json.dumps(character, ensure_ascii=False)
 
-        # 10턴마다 스냅샷 저장
-        if game.turn_count % 10 == 0:
+        # 10턴마다 스냅샷 저장 (턴 0 제외)
+        if game.turn_count > 0 and game.turn_count % 10 == 0:
             world_now = json.loads(game.world_json)
             game.snapshot_json = json.dumps({
                 "character": character,
@@ -315,7 +322,7 @@ async def take_action(
 
         # 컨텍스트 압축 (필요 시)
         all_histories = db.query(History).filter(History.game_id == game.id).all()
-        await context_mgr.compress_if_needed(game, all_histories, db, ai_client)
+        await context_mgr.compress_if_needed(game, all_histories, db, async_client)
 
         world_state = json.loads(game.world_json)
         yield f"data: {json.dumps({'done': True, 'state': state_changes, 'character': character, 'world': world_state, 'snapshot_turn': game.snapshot_turn, 'game_status': game.status})}\n\n"
