@@ -101,7 +101,7 @@ export default function Landing() {
         </p>
 
         {/* Feature cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginTop: '3rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(7rem, 1fr))', gap: '0.75rem', marginTop: '3rem' }}>
           {[
             { icon: '✦', title: '무한한 세계관', desc: '원하는 배경 어디든' },
             { icon: '◈', title: 'AI 게임마스터', desc: '즉흥적 서사 생성' },

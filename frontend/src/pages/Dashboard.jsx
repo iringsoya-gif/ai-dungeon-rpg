@@ -121,7 +121,7 @@ export default function Dashboard() {
               alt=""
             />
           )}
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{user?.name}</span>
+          <span className="hidden sm:inline" style={{ fontSize: '0.8rem', color: 'var(--text-dim)', maxWidth: '8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</span>
           <button
             onClick={handleLogout}
             style={{

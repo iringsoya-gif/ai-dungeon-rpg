@@ -247,16 +247,17 @@ export default function Game() {
       }}>
         <button
           onClick={() => navigate('/dashboard')}
-          style={{ color: '#4a4a60', fontSize: '0.78rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          style={{ color: '#4a4a60', fontSize: '0.78rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
           onMouseEnter={e => e.currentTarget.style.color = '#c9a84c'}
           onMouseLeave={e => e.currentTarget.style.color = '#4a4a60'}
         >
-          ← 대시보드
+          <span className="hidden md:inline">← 대시보드</span>
+          <span className="md:hidden">←</span>
         </button>
 
-        <span style={{ color: '#1e1e2e' }}>│</span>
+        <span style={{ color: '#1e1e2e', flexShrink: 0 }}>│</span>
 
-        <span style={{ fontWeight: 700, color: '#e8e4f8', fontSize: '0.9rem', letterSpacing: '0.02em' }}>
+        <span style={{ fontWeight: 700, color: '#e8e4f8', fontSize: '0.9rem', letterSpacing: '0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
           {game.title}
         </span>
 
@@ -270,16 +271,16 @@ export default function Game() {
           {saved ? '✓ 저장됨' : lastSavedAt ? savedLabel : `T-${game.turn_count}`}
         </span>
 
-        {/* 폰트 크기 조절 */}
+        {/* 폰트 크기 조절 — 모바일에서 숨김 */}
         <button
           onClick={cycleFontSize}
           title={`폰트 크기: ${fontSize === 'sm' ? '소' : fontSize === 'md' ? '중' : '대'} (클릭으로 변경)`}
-          style={{ fontSize: '0.75rem', background: 'none', border: 'none', cursor: 'pointer', color: '#3a3a50', padding: '0.1rem 0.2rem', transition: 'color 0.2s' }}
+          className="hidden md:inline-flex"
+          style={{ fontSize: '0.75rem', background: 'none', border: 'none', cursor: 'pointer', color: '#3a3a50', padding: '0.1rem 0.2rem', transition: 'color 0.2s', alignItems: 'center' }}
           onMouseEnter={e => e.currentTarget.style.color = '#9d7fe8'}
           onMouseLeave={e => e.currentTarget.style.color = '#3a3a50'}
         >
-          {fontSize === 'sm' ? 'A' : fontSize === 'md' ? 'A' : 'A'}
-          <sup style={{ fontSize: '0.55rem' }}>{fontSize === 'sm' ? '소' : fontSize === 'md' ? '중' : '대'}</sup>
+          A<sup style={{ fontSize: '0.55rem' }}>{fontSize === 'sm' ? '소' : fontSize === 'md' ? '중' : '대'}</sup>
         </button>
 
         {/* BGM toggle + volume */}
@@ -305,6 +306,7 @@ export default function Game() {
               value={volume}
               onChange={e => setVolume(parseFloat(e.target.value))}
               title={`볼륨: ${Math.round(volume * 100)}%`}
+              className="hidden md:inline-block"
               style={{ width: '5rem', accentColor: '#9d7fe8', cursor: 'pointer' }}
             />
           )}
@@ -728,10 +730,31 @@ export default function Game() {
           )}
         </div>
 
-        {/* ── Sidebar ── */}
-        <div className={`${showSidebar ? 'flex' : 'hidden'} md:flex flex-col`}>
+        {/* ── Desktop sidebar (항상 표시) ── */}
+        <div className="hidden md:flex flex-col">
           <StatusPanel character={game.character} world={game.world} onOpenSheet={() => setShowSheet(true)} />
         </div>
+
+        {/* ── Mobile sidebar overlay ── */}
+        {showSidebar && (
+          <>
+            <div
+              className="md:hidden"
+              onClick={() => setShowSidebar(false)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 30 }}
+            />
+            <div
+              className="md:hidden"
+              style={{ position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 31, overflowY: 'auto' }}
+            >
+              <StatusPanel
+                character={game.character}
+                world={game.world}
+                onOpenSheet={() => { setShowSheet(true); setShowSidebar(false) }}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {showSheet && <CharacterSheet character={game?.character} visitedLocations={visitedLocations} onClose={() => setShowSheet(false)} />}
