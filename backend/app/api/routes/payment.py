@@ -58,8 +58,11 @@ async def create_checkout(
 async def polar_webhook(request: Request, db: Session = Depends(get_db)):
     body      = await request.body()
     signature = request.headers.get("webhook-signature", "")
-    expected  = hmac.new(POLAR_WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
 
+    if not POLAR_WEBHOOK_SECRET:
+        raise HTTPException(500, "웹훅 시크릿이 설정되지 않았습니다")
+
+    expected  = hmac.new(POLAR_WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(f"sha256={expected}", signature):
         raise HTTPException(400, "서명 검증 실패")
 
@@ -137,8 +140,7 @@ async def verify_checkout(
         db.commit()
         return {"plan": "paid", "upgraded": True}
 
-    # status를 클라이언트에 노출해 디버깅 가능하게
-    return {"plan": current_user.plan, "upgraded": False, "checkout_status": status, "polar_data": str(data)[:300]}
+    return {"plan": current_user.plan, "upgraded": False, "checkout_status": status}
 
 
 @router.post("/sync")

@@ -32,32 +32,45 @@ def google_login():
 
 
 @router.get("/callback")
-async def google_callback(code: str, db: Session = Depends(get_db)):
-    async with httpx.AsyncClient() as client:
-        token_res = await client.post(GOOGLE_TOKEN_URL, data={
-            "code": code,
-            "client_id": GOOGLE_CLIENT_ID,
-            "client_secret": GOOGLE_CLIENT_SECRET,
-            "redirect_uri": GOOGLE_REDIRECT_URI,
-            "grant_type": "authorization_code",
-        })
-        token_data = token_res.json()
-        if "access_token" not in token_data:
-            raise HTTPException(400, "Google 인증 실패: " + token_data.get("error", "unknown"))
+async def google_callback(
+    code: str = None,
+    error: str = None,
+    db: Session = Depends(get_db),
+):
+    # 사용자가 로그인을 취소하거나 Google에서 에러 반환 시
+    if error or not code:
+        reason = error or "no_code"
+        return RedirectResponse(f"{FRONTEND_URL}/auth/callback?error={reason}")
 
-        user_res = await client.get(
-            GOOGLE_USER_URL,
-            headers={"Authorization": f"Bearer {token_data['access_token']}"},
-        )
-        google_user = user_res.json()
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            token_res = await client.post(GOOGLE_TOKEN_URL, data={
+                "code": code,
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "redirect_uri": GOOGLE_REDIRECT_URI,
+                "grant_type": "authorization_code",
+            })
+            token_data = token_res.json()
+            if "access_token" not in token_data:
+                return RedirectResponse(f"{FRONTEND_URL}/auth/callback?error=token_failed")
+
+            user_res = await client.get(
+                GOOGLE_USER_URL,
+                headers={"Authorization": f"Bearer {token_data['access_token']}"},
+            )
+            google_user = user_res.json()
+    except httpx.TimeoutException:
+        return RedirectResponse(f"{FRONTEND_URL}/auth/callback?error=timeout")
+    except Exception:
+        return RedirectResponse(f"{FRONTEND_URL}/auth/callback?error=server_error")
 
     email = google_user.get("email")
     if not email:
-        raise HTTPException(400, "Google 계정에서 이메일을 가져올 수 없습니다")
+        return RedirectResponse(f"{FRONTEND_URL}/auth/callback?error=no_email")
 
     user = db.query(User).filter(User.email == email).first()
     if user:
-        # 기존 유저: name/picture 업데이트 (upsert)
         user.name    = google_user.get("name")
         user.picture = google_user.get("picture")
     else:

@@ -2,6 +2,7 @@ import { useAuthStore } from '../store/authStore'
 import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { api } from '../lib/api'
+import ConfirmModal from '../components/ui/ConfirmModal'
 
 function CheckItem({ children, active }) {
   return (
@@ -15,7 +16,8 @@ function CheckItem({ children, active }) {
 export default function Pricing() {
   const user     = useAuthStore(s => s.user)
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading]   = useState(false)
+  const [errorMsg, setErrorMsg] = useState(null)
 
   const handleCheckout = async () => {
     if (!user) { window.location.href = api.loginUrl(); return }
@@ -25,13 +27,20 @@ export default function Pricing() {
       window.location.href = checkout_url
     } catch (e) {
       const msg = e?.detail || e?.message || JSON.stringify(e)
-      alert(`결제 페이지 이동 실패:\n${msg}`)
+      setErrorMsg(`결제 페이지 이동에 실패했습니다.\n${msg}`)
       setLoading(false)
     }
   }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', display: 'flex', flexDirection: 'column', padding: '2rem 1.5rem' }}>
+      <ConfirmModal
+        open={!!errorMsg}
+        title="결제 오류"
+        message={errorMsg}
+        onConfirm={() => setErrorMsg(null)}
+        alertOnly
+      />
 
       {/* Nav */}
       <div style={{ maxWidth: '38rem', margin: '0 auto', width: '100%', marginBottom: '2.5rem' }}>
