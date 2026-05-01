@@ -5,6 +5,13 @@ import { API_URL, getToken } from '../lib/api'
 const MAX_RETRIES = 2
 const RETRY_DELAY_MS = 1000
 
+class HttpError extends Error {
+  constructor(status, message) {
+    super(message)
+    this.httpStatus = status
+  }
+}
+
 function friendlyError(status, detail) {
   if (status === 429) return '요청이 너무 많습니다. 잠시 후 다시 시도해주세요. (분당 15회 제한)'
   if (status === 401) return '로그인이 만료되었습니다. 새로고침 후 다시 시도해주세요.'
@@ -46,7 +53,7 @@ export function useStream() {
           setStreamError(friendlyError(429, detail))
           return
         }
-        throw new Error(friendlyError(res.status, detail))
+        throw new HttpError(res.status, friendlyError(res.status, detail))
       }
 
       const reader  = res.body.getReader()
@@ -100,8 +107,8 @@ export function useStream() {
     } catch (err) {
       if (err.name === 'AbortError') return
 
-      // 네트워크 오류 → 재시도 (429·4xx 제외)
-      if (attempt < MAX_RETRIES && !err.message.includes('요청이 너무')) {
+      // 네트워크 오류·5xx → 재시도 (4xx 제외)
+      if (attempt < MAX_RETRIES && !(err.httpStatus >= 400 && err.httpStatus < 600)) {
         clearStream()
         await new Promise(r => setTimeout(r, RETRY_DELAY_MS))
         if (!abortRef.current?.signal.aborted) {

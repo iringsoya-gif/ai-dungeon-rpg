@@ -222,6 +222,73 @@ export function useBGM() {
     })
   }, [])
 
+  const playSFX = useCallback((type) => {
+    if (!enabledRef.current) return
+    try {
+      const ctx = getCtx()
+      if (ctx.state === 'suspended') ctx.resume()
+      const vol = volumeRef.current
+
+      const sfxMap = {
+        combat: () => {
+          [0, 0.04, 0.09].forEach((delay, i) => {
+            const osc = ctx.createOscillator()
+            const g   = ctx.createGain()
+            osc.type = 'sawtooth'
+            osc.frequency.value = 180 + i * 110
+            g.gain.setValueAtTime(0, ctx.currentTime + delay)
+            g.gain.linearRampToValueAtTime(0.16 * vol, ctx.currentTime + delay + 0.01)
+            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.2)
+            osc.connect(g); g.connect(ctx.destination)
+            osc.start(ctx.currentTime + delay)
+            osc.stop(ctx.currentTime + delay + 0.22)
+          })
+        },
+        levelup: () => {
+          [261.6, 329.6, 392.0, 523.2].forEach((freq, i) => {
+            const osc = ctx.createOscillator()
+            const g   = ctx.createGain()
+            osc.type = 'sine'
+            osc.frequency.value = freq
+            const t = ctx.currentTime + i * 0.11
+            g.gain.setValueAtTime(0, t)
+            g.gain.linearRampToValueAtTime(0.22 * vol, t + 0.04)
+            g.gain.exponentialRampToValueAtTime(0.001, t + 0.38)
+            osc.connect(g); g.connect(ctx.destination)
+            osc.start(t); osc.stop(t + 0.42)
+          })
+        },
+        item: () => {
+          [880, 1108].forEach((freq, i) => {
+            const osc = ctx.createOscillator()
+            const g   = ctx.createGain()
+            osc.type = 'sine'
+            osc.frequency.value = freq
+            const t = ctx.currentTime + i * 0.09
+            g.gain.setValueAtTime(0, t)
+            g.gain.linearRampToValueAtTime(0.13 * vol, t + 0.02)
+            g.gain.exponentialRampToValueAtTime(0.001, t + 0.32)
+            osc.connect(g); g.connect(ctx.destination)
+            osc.start(t); osc.stop(t + 0.35)
+          })
+        },
+        error: () => {
+          const osc = ctx.createOscillator()
+          const g   = ctx.createGain()
+          osc.type = 'sine'
+          osc.frequency.setValueAtTime(240, ctx.currentTime)
+          osc.frequency.exponentialRampToValueAtTime(90, ctx.currentTime + 0.32)
+          g.gain.setValueAtTime(0.18 * vol, ctx.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.38)
+          osc.connect(g); g.connect(ctx.destination)
+          osc.start(); osc.stop(ctx.currentTime + 0.4)
+        },
+      }
+
+      sfxMap[type]?.()
+    } catch {}
+  }, [getCtx])
+
   const setVolume = useCallback((v) => {
     const clamped = Math.max(0, Math.min(1, v))
     volumeRef.current = clamped
@@ -249,5 +316,5 @@ export function useBGM() {
     }
   }, [stopSynth])
 
-  return { enabled, toggle, start, setMood, mood, volume, setVolume }
+  return { enabled, toggle, start, setMood, mood, volume, setVolume, playSFX }
 }

@@ -52,6 +52,37 @@ function parseGmContent(text) {
   return parts.length ? parts : [{ type: 'narrative', text }]
 }
 
+/* GM 나레이션 내 **bold** / *em* 마크다운 강조 */
+function parseMarkdown(text) {
+  const parts = []
+  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*)/g
+  let lastIndex = 0
+  let match
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) parts.push({ type: 'text', text: text.slice(lastIndex, match.index) })
+    const isBold = match[0].startsWith('**')
+    parts.push({ type: isBold ? 'bold' : 'em', text: isBold ? match[0].slice(2, -2) : match[0].slice(1, -1) })
+    lastIndex = match.index + match[0].length
+  }
+  if (lastIndex < text.length) parts.push({ type: 'text', text: text.slice(lastIndex) })
+  return parts
+}
+
+function MarkdownText({ text }) {
+  const parts = parseMarkdown(text)
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.type === 'bold'
+          ? <strong key={i} style={{ color: '#e8c96a', fontWeight: 700 }}>{p.text}</strong>
+          : p.type === 'em'
+          ? <em key={i} style={{ color: '#d4a843', fontStyle: 'italic' }}>{p.text}</em>
+          : <span key={i}>{p.text}</span>
+      )}
+    </>
+  )
+}
+
 /* GM 완성 메시지 렌더링 (NPC 대화 블록 포함) */
 function GmContent({ raw, fontSize, FONT_SIZE }) {
   const text = stripJson(raw)
@@ -91,7 +122,7 @@ function GmContent({ raw, fontSize, FONT_SIZE }) {
             lineHeight: 1.95, margin: '0.3rem 0',
             whiteSpace: 'pre-wrap', fontFamily: "'Noto Serif KR', serif",
           }}>
-            {part.text}
+            <MarkdownText text={part.text} />
           </p>
         )
       )}
@@ -104,7 +135,7 @@ export default function Game() {
   const navigate  = useNavigate()
   const { game, histories, streamText, setGame, levelUpNotif, clearLevelUp, visitedLocations } = useGameStore()
   const { streaming, streamError, lastAction, sendAction, retry, cancel } = useStream()
-  const { enabled: bgmEnabled, toggle: bgmToggle, start: bgmStart, setMood, volume, setVolume } = useBGM()
+  const { enabled: bgmEnabled, toggle: bgmToggle, start: bgmStart, setMood, volume, setVolume, playSFX } = useBGM()
   const bgmStarted = useRef(false)
   const inputRef = useRef(null)
   const [input, setInput]             = useState('')
@@ -135,6 +166,29 @@ export default function Game() {
     navigator.clipboard.writeText(`${window.location.origin}/story/${id}`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const exportStory = () => {
+    const lines = [
+      `=== ${game.title} ===`,
+      `캐릭터: ${game.character?.name} (${game.character?.class}) Lv.${game.character?.level}`,
+      `총 턴: ${game.turn_count}`,
+      '',
+      '─'.repeat(40),
+      '',
+    ]
+    histories.forEach(h => {
+      lines.push(h.role === 'gm' ? '[GM]' : '[플레이어]')
+      lines.push(stripJson(h.content))
+      lines.push('')
+    })
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${game.title}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const cycleFontSize = () => {
@@ -200,6 +254,49 @@ export default function Game() {
     if (isDead) { setMood('gameover'); return }
     setMood(game.character.in_battle ? 'battle' : 'calm')
   }, [game?.character?.in_battle, isDead, setMood])
+
+  // SFX: battle start
+  const prevInBattle = useRef(false)
+  useEffect(() => {
+    if (!bgmStarted.current) return
+    if (!prevInBattle.current && game?.character?.in_battle) playSFX('combat')
+    prevInBattle.current = !!game?.character?.in_battle
+  }, [game?.character?.in_battle, playSFX])
+
+  // SFX: level up
+  useEffect(() => {
+    if (levelUpNotif > 0 && bgmStarted.current) playSFX('levelup')
+  }, [levelUpNotif, playSFX])
+
+  // SFX: stream error
+  useEffect(() => {
+    if (streamError && bgmStarted.current) playSFX('error')
+  }, [streamError, playSFX])
+
+  // SFX: 인벤토리 증가 → 아이템 획득 효과음
+  const prevInvLenRef = useRef(null)
+  useEffect(() => {
+    const len = game?.character?.inventory?.length
+    if (len == null) return
+    if (prevInvLenRef.current != null && len > prevInvLenRef.current && bgmStarted.current) {
+      playSFX('item')
+    }
+    prevInvLenRef.current = len
+  }, [game?.character?.inventory?.length, playSFX])
+
+  // 키보드 단축키
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (confirmModal.open) { closeConfirm(); return }
+        if (showSheet)   { setShowSheet(false); return }
+        if (showSidebar) { setShowSidebar(false); return }
+        if (showSummary) { setShowSummary(false); return }
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [confirmModal.open, showSheet, showSidebar, showSummary, closeConfirm])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -361,6 +458,18 @@ export default function Game() {
             ≡ 요약
           </button>
         )}
+
+        {/* 내보내기 버튼 (항상 표시) */}
+        <button
+          onClick={exportStory}
+          className="hidden md:block"
+          title="스토리 텍스트 파일 저장"
+          style={{ fontSize: '0.7rem', color: '#4a4a60', border: '1px solid #1e1e2e', borderRadius: '0.375rem', padding: '0.2rem 0.55rem', background: 'transparent', cursor: 'pointer' }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#a09ab8'; e.currentTarget.style.borderColor = 'rgba(160,154,184,0.3)' }}
+          onMouseLeave={e => { e.currentTarget.style.color = '#4a4a60'; e.currentTarget.style.borderColor = '#1e1e2e' }}
+        >
+          ↓
+        </button>
 
         {isDead && (
           <button
@@ -732,7 +841,7 @@ export default function Game() {
 
         {/* ── Desktop sidebar (항상 표시) ── */}
         <div className="hidden md:flex flex-col">
-          <StatusPanel character={game.character} world={game.world} onOpenSheet={() => setShowSheet(true)} />
+          <StatusPanel character={game.character} world={game.world} onOpenSheet={() => setShowSheet(true)} visitedLocations={visitedLocations} />
         </div>
 
         {/* ── Mobile sidebar overlay ── */}
@@ -751,6 +860,7 @@ export default function Game() {
                 character={game.character}
                 world={game.world}
                 onOpenSheet={() => { setShowSheet(true); setShowSidebar(false) }}
+                visitedLocations={visitedLocations}
               />
             </div>
           </>

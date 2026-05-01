@@ -1,7 +1,96 @@
 import { useAuthStore } from '../store/authStore'
-import { useNavigate } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
+import { useEffect, useState, useRef } from 'react'
 import { api } from '../lib/api'
+
+const DEMO_SCRIPT = [
+  { role: 'gm',     text: '어둠 속 낡은 철문이 삐걱거립니다. 횃불 빛에 드러난 세 갈림길 — 왼쪽엔 **핏자국**, 오른쪽엔 *황금빛 빛*이 새어나옵니다.' },
+  { role: 'player', text: '**오른쪽 통로를 조심스럽게 살핀다**' },
+  { role: 'gm',     text: '통로 끝, 먼지 쌓인 제단 위에 **고대의 검**이 빛나고 있습니다. [수상한 상인] "그 검은... 저주받았소이다."' },
+]
+
+function TypedText({ text, onDone }) {
+  const [displayed, setDisplayed] = useState('')
+  const rafRef = useRef(null)
+  const lenRef = useRef(0)
+
+  useEffect(() => {
+    lenRef.current = 0
+    setDisplayed('')
+    const animate = () => {
+      const next = Math.min(lenRef.current + 2, text.length)
+      lenRef.current = next
+      setDisplayed(text.slice(0, next))
+      if (next < text.length) {
+        rafRef.current = setTimeout(() => { rafRef.current = requestAnimationFrame(animate) }, 18)
+      } else {
+        onDone?.()
+      }
+    }
+    const t = setTimeout(() => { rafRef.current = requestAnimationFrame(animate) }, 400)
+    return () => {
+      clearTimeout(t)
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); clearTimeout(rafRef.current) }
+    }
+  }, [text])
+
+  return <>{displayed}</>
+}
+
+function DemoPreview() {
+  const [phase, setPhase] = useState(0)
+  const [visible, setVisible] = useState([])
+
+  useEffect(() => {
+    if (phase >= DEMO_SCRIPT.length) {
+      const t = setTimeout(() => { setPhase(0); setVisible([]) }, 3500)
+      return () => clearTimeout(t)
+    }
+    setVisible(v => [...v, phase])
+  }, [phase])
+
+  return (
+    <div style={{
+      background: '#0c0c18', border: '1px solid #1e1e30', borderRadius: '0.875rem',
+      padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.875rem',
+      minHeight: '9rem', textAlign: 'left',
+    }}>
+      <p style={{ fontSize: '0.6rem', color: '#3a3a50', letterSpacing: '0.12em', fontFamily: 'monospace' }}>
+        LIVE DEMO · AI GAME MASTER
+      </p>
+      {visible.map(idx => {
+        const line = DEMO_SCRIPT[idx]
+        const isLast = idx === phase
+        return line.role === 'gm' ? (
+          <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+            <div style={{ width: '1.5rem', height: '1.5rem', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1430, #2a1f50)', border: '1px solid #3a2e60', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', color: '#9d7fe8', flexShrink: 0 }}>✦</div>
+            <div style={{ background: '#111120', border: '1px solid #1e1e30', borderRadius: '0.25rem 0.875rem 0.875rem 0.875rem', padding: '0.5rem 0.75rem', flex: 1 }}>
+              <p style={{ fontSize: '0.6rem', color: '#5a4a80', letterSpacing: '0.1em', fontFamily: 'monospace', marginBottom: '0.25rem' }}>GAME MASTER</p>
+              <p style={{ fontSize: '0.78rem', color: '#ddd8f0', lineHeight: 1.7, fontFamily: "'Noto Serif KR', serif" }}>
+                {isLast
+                  ? <TypedText text={line.text} onDone={() => setTimeout(() => setPhase(p => p + 1), 900)} />
+                  : line.text
+                }
+                {isLast && <span style={{ display: 'inline-block', width: '2px', height: '0.85em', background: '#c9a84c', marginLeft: '2px', verticalAlign: 'text-bottom', animation: 'blink 1s step-end infinite' }} />}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div key={idx} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ background: '#131828', border: '1px solid #1e2a42', borderRadius: '0.875rem 0.875rem 0.25rem 0.875rem', padding: '0.5rem 0.75rem', maxWidth: '80%' }}>
+              <p style={{ fontSize: '0.78rem', color: '#c8d8f0', lineHeight: 1.6 }}>
+                {isLast
+                  ? <TypedText text={line.text} onDone={() => setTimeout(() => setPhase(p => p + 1), 700)} />
+                  : line.text
+                }
+              </p>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 export default function Landing() {
   const user     = useAuthStore(s => s.user)
@@ -100,8 +189,32 @@ export default function Landing() {
           가입 시 캐릭터 1명 무료 · 언제든 업그레이드 가능
         </p>
 
+        {/* Live demo */}
+        <div style={{ marginTop: '2.5rem' }}>
+          <p style={{ fontSize: '0.68rem', color: 'var(--muted)', marginBottom: '0.75rem', letterSpacing: '0.05em' }}>
+            실제 플레이 미리보기
+          </p>
+          <DemoPreview />
+        </div>
+
+        {/* Gallery link */}
+        <div style={{ marginTop: '1.5rem' }}>
+          <Link
+            to="/stories"
+            style={{
+              fontSize: '0.75rem', color: 'var(--muted)',
+              textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+              transition: 'color 0.2s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-dim)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--muted)'}
+          >
+            다른 모험가들의 기록 보기 →
+          </Link>
+        </div>
+
         {/* Feature cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(7rem, 1fr))', gap: '0.75rem', marginTop: '3rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(7rem, 1fr))', gap: '0.75rem', marginTop: '1.5rem' }}>
           {[
             { icon: '✦', title: '무한한 세계관', desc: '원하는 배경 어디든' },
             { icon: '◈', title: 'AI 게임마스터', desc: '즉흥적 서사 생성' },

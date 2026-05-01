@@ -34,6 +34,7 @@ const GameOver     = lazy(() => import('./pages/GameOver'))
 const Pricing      = lazy(() => import('./pages/Pricing'))
 const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'))
 const Story        = lazy(() => import('./pages/Story'))
+const Stories      = lazy(() => import('./pages/Stories'))
 
 function PageLoader() {
   return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', color: 'var(--muted)', fontSize: '0.875rem' }}>로딩 중...</div>
@@ -42,7 +43,7 @@ function PageLoader() {
 function PrivateRoute({ children }) {
   const user = useAuthStore(s => s.user)
   const isLoading = useAuthStore(s => s.isLoading)
-  if (isLoading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">로딩 중...</div>
+  if (isLoading) return <PageLoader />
   return user ? children : <Navigate to="/" />
 }
 
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="/pricing"        element={<Pricing />} />
           <Route path="/payment/success" element={<PrivateRoute><PaymentSuccess /></PrivateRoute>} />
           <Route path="/story/:id"       element={<Story />} />
+          <Route path="/stories"         element={<Stories />} />
         </Routes>
       </Suspense>
       </ErrorBoundary>

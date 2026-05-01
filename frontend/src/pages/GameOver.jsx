@@ -17,7 +17,7 @@ export default function GameOver() {
         .catch(() => navigate('/dashboard'))
         .finally(() => setLoading(false))
     }
-  }, [id])
+  }, [id, navigate])
 
   if (loading) return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

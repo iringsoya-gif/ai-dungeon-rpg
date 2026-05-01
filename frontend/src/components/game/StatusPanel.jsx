@@ -1,307 +1,319 @@
+import { useState, useRef, useEffect } from 'react'
+
 function attitudeIcon(v) {
   if (v > 30)  return { icon: '❤', color: '#4ade80' }
   if (v < -30) return { icon: '⚔', color: '#f87171' }
   return { icon: '?', color: '#94a3b8' }
 }
 
-export default function StatusPanel({ character, world, onOpenSheet }) {
-  if (!character) return null
-  const { stats, inventory, quests, quest_details, location, level, xp, xp_to_next, in_battle, status_effects } = character
-  if (!stats) return null
+const TABS = [
+  { id: 'stat',   label: '상태' },
+  { id: 'quest',  label: '퀘스트' },
+  { id: 'npc',    label: 'NPC' },
+  { id: 'map',    label: '지도' },
+]
+
+export default function StatusPanel({ character, world, onOpenSheet, visitedLocations = [] }) {
+  const [tab, setTab] = useState('stat')
+  const [hpFlash, setHpFlash]  = useState(null)
+  const [mpFlash, setMpFlash]  = useState(null)
+  const [xpFlash, setXpFlash]  = useState(null)
+  const prevRef = useRef(null)
+
+  const { stats, inventory, quests, quest_details, location, level, xp, xp_to_next, in_battle, status_effects } = character || {}
+
+  useEffect(() => {
+    if (!stats) return
+    const prev = prevRef.current
+    if (prev) {
+      if (stats.hp !== prev.hp) {
+        const dir = stats.hp > prev.hp ? 'up' : 'down'
+        setHpFlash(dir)
+        setTimeout(() => setHpFlash(null), 1300)
+      }
+      if (stats.mp !== prev.mp) {
+        const dir = stats.mp > prev.mp ? 'up' : 'down'
+        setMpFlash(dir)
+        setTimeout(() => setMpFlash(null), 1300)
+      }
+      if ((xp || 0) > (prev.xp || 0)) {
+        setXpFlash('up')
+        setTimeout(() => setXpFlash(null), 1300)
+      }
+    }
+    prevRef.current = { ...stats, xp }
+  }, [stats?.hp, stats?.mp, xp])
+
+  if (!character || !stats) return null
 
   const hpPct = Math.max(0, Math.min(100, (stats.hp / (stats.max_hp || 1)) * 100))
   const mpPct = Math.max(0, Math.min(100, (stats.mp / (stats.max_mp || 1)) * 100))
   const xpPct = Math.max(0, Math.min(100, ((xp || 0) / (xp_to_next || 100)) * 100))
-
   const hpColor = hpPct > 60 ? '#22c55e' : hpPct > 30 ? '#f59e0b' : '#ef4444'
 
-  const npcs      = world?.npcs      ? Object.entries(world.npcs)      : []
-  const locations = world?.locations ? Object.keys(world.locations)    : []
+  const npcs      = world?.npcs      ? Object.entries(world.npcs)   : []
+  const worldLocs = world?.locations ? Object.keys(world.locations) : []
+  const allLocs   = [...new Set([...worldLocs, ...visitedLocations])]
   const timeOfDay = world?.time_of_day
   const weather   = world?.weather
 
+  const questCount  = quests?.length || 0
+  const npcCount    = npcs.length
+  const mapCount    = allLocs.length
+
   return (
-    <div
-      style={{
-        width: '15rem',
-        flexShrink: 0,
-        borderLeft: '1px solid var(--border)',
-        background: 'var(--surface)',
-        padding: '1rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1rem',
-        overflowY: 'auto',
-        fontSize: '0.78rem',
-      }}
-    >
+    <div style={{
+      width: '15rem', flexShrink: 0,
+      borderLeft: '1px solid var(--border)',
+      background: 'var(--surface)',
+      display: 'flex', flexDirection: 'column',
+      fontSize: '0.78rem',
+    }}>
       {/* Character header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <p style={{ fontWeight: 700, color: 'var(--gold-light)', fontSize: '0.875rem', letterSpacing: '0.02em' }}>
-            {character.name}
-          </p>
-          <p style={{ color: 'var(--muted)', marginTop: '0.15rem', fontSize: '0.7rem' }}>
-            {character.class} · Lv.{level || 1}
-          </p>
-        </div>
-        <button
-          onClick={onOpenSheet}
-          style={{
-            fontSize: '0.65rem',
-            color: 'var(--muted)',
-            border: '1px solid var(--border)',
-            borderRadius: '0.375rem',
-            padding: '0.2rem 0.5rem',
-            background: 'transparent',
-            cursor: 'pointer',
-            letterSpacing: '0.03em',
-            transition: 'color 0.2s, border-color 0.2s',
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.color = 'var(--gold)'
-            e.currentTarget.style.borderColor = 'rgba(201,168,76,0.4)'
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.color = 'var(--muted)'
-            e.currentTarget.style.borderColor = 'var(--border)'
-          }}
-        >
-          시트
-        </button>
-      </div>
-
-      {/* Battle indicator */}
-      {in_battle && (
-        <div
-          style={{
-            background: 'rgba(239,68,68,0.12)',
-            border: '1px solid rgba(239,68,68,0.5)',
-            borderRadius: '0.5rem',
-            padding: '0.375rem 0.625rem',
-            color: '#fca5a5',
-            textAlign: 'center',
-            fontSize: '0.7rem',
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            animation: 'pulse 2s infinite',
-          }}
-        >
-          ⚔ 전투 중
-        </div>
-      )}
-
-      {/* HP */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
-          <span style={{ color: 'var(--muted)', letterSpacing: '0.05em' }}>HP</span>
-          <span style={{ color: hpColor, fontFamily: 'monospace', fontWeight: 600 }}>
-            {stats.hp}/{stats.max_hp}
-          </span>
-        </div>
-        <div style={{ height: '4px', background: 'var(--bg)', borderRadius: '9999px', overflow: 'hidden' }}>
-          <div
+      <div style={{ padding: '1rem 1rem 0.625rem', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <p style={{ fontWeight: 700, color: 'var(--gold-light)', fontSize: '0.875rem', letterSpacing: '0.02em' }}>
+              {character.name}
+            </p>
+            <p style={{ color: 'var(--muted)', marginTop: '0.15rem', fontSize: '0.7rem' }}>
+              {character.class} · Lv.{level || 1}
+            </p>
+          </div>
+          <button
+            onClick={onOpenSheet}
             style={{
-              height: '100%',
-              width: `${hpPct}%`,
-              background: hpColor,
-              borderRadius: '9999px',
-              transition: 'width 0.4s, background 0.4s',
-              boxShadow: `0 0 6px ${hpColor}60`,
+              fontSize: '0.65rem', color: 'var(--muted)',
+              border: '1px solid var(--border)', borderRadius: '0.375rem',
+              padding: '0.2rem 0.5rem', background: 'transparent', cursor: 'pointer',
+              transition: 'color 0.2s, border-color 0.2s',
             }}
-          />
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'rgba(201,168,76,0.4)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+          >
+            시트
+          </button>
         </div>
-      </div>
 
-      {/* MP */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
-          <span style={{ color: 'var(--muted)', letterSpacing: '0.05em' }}>MP</span>
-          <span style={{ color: '#818cf8', fontFamily: 'monospace', fontWeight: 600 }}>
-            {stats.mp}/{stats.max_mp}
-          </span>
-        </div>
-        <div style={{ height: '4px', background: 'var(--bg)', borderRadius: '9999px', overflow: 'hidden' }}>
-          <div
-            style={{
-              height: '100%',
-              width: `${mpPct}%`,
-              background: 'linear-gradient(90deg, #4f46e5, #818cf8)',
-              borderRadius: '9999px',
-              transition: 'width 0.4s',
-              boxShadow: '0 0 6px rgba(129,140,248,0.4)',
-            }}
-          />
-        </div>
-      </div>
-
-      {/* XP */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
-          <span style={{ color: 'var(--muted)', letterSpacing: '0.05em' }}>XP</span>
-          <span style={{ color: 'rgba(201,168,76,0.8)', fontFamily: 'monospace', fontWeight: 600 }}>
-            {xp || 0}/{xp_to_next || 100}
-          </span>
-        </div>
-        <div style={{ height: '4px', background: 'var(--bg)', borderRadius: '9999px', overflow: 'hidden' }}>
-          <div
-            style={{
-              height: '100%',
-              width: `${xpPct}%`,
-              background: 'linear-gradient(90deg, #8a6820, var(--gold))',
-              borderRadius: '9999px',
-              transition: 'width 0.4s',
-              boxShadow: '0 0 6px rgba(201,168,76,0.3)',
-            }}
-          />
-        </div>
-      </div>
-
-      <div style={{ height: '1px', background: 'var(--border)' }} />
-
-      {/* Location + weather/time */}
-      <div>
-        <p style={{ color: 'var(--muted)', marginBottom: '0.3rem', letterSpacing: '0.06em', fontSize: '0.65rem' }}>
-          ◈ 현재 위치
-        </p>
-        <p style={{ color: 'var(--text)', fontStyle: 'italic', fontSize: '0.8rem' }}>{location || '???'}</p>
-        {(timeOfDay || weather) && (
-          <p style={{ color: 'var(--muted)', fontSize: '0.65rem', marginTop: '0.3rem' }}>
-            {[timeOfDay, weather].filter(Boolean).join(' · ')}
-          </p>
+        {in_battle && (
+          <div style={{
+            marginTop: '0.5rem',
+            background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.5)',
+            borderRadius: '0.375rem', padding: '0.25rem 0.5rem',
+            color: '#fca5a5', textAlign: 'center', fontSize: '0.68rem',
+            fontWeight: 700, letterSpacing: '0.08em', animation: 'pulse 2s infinite',
+          }}>
+            ⚔ 전투 중
+          </div>
         )}
       </div>
 
-      {/* NPC relations */}
-      {npcs.length > 0 && (
-        <div>
-          <p style={{ color: 'var(--muted)', marginBottom: '0.375rem', letterSpacing: '0.06em', fontSize: '0.65rem' }}>
-            ◈ NPC 관계
-          </p>
-          <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            {npcs.map(([name, info]) => {
-              const { icon, color } = attitudeIcon(info.attitude ?? 0)
-              return (
-                <li
-                  key={name}
-                  title={info.desc || ''}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem' }}
-                >
-                  <span style={{ color, flexShrink: 0 }}>{icon}</span>
-                  <span style={{ color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {name}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      )}
+      {/* Tab bar */}
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        {TABS.map(t => {
+          const badge = t.id === 'quest' ? questCount : t.id === 'npc' ? npcCount : t.id === 'map' ? mapCount : 0
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              style={{
+                flex: 1, padding: '0.45rem 0', fontSize: '0.65rem', fontWeight: tab === t.id ? 700 : 400,
+                color: tab === t.id ? 'var(--gold)' : 'var(--muted)',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                borderBottom: tab === t.id ? '2px solid var(--gold)' : '2px solid transparent',
+                transition: 'color 0.15s',
+                position: 'relative',
+              }}
+            >
+              {t.label}
+              {badge > 0 && t.id !== 'map' && (
+                <span style={{
+                  position: 'absolute', top: '3px', right: '2px',
+                  fontSize: '0.52rem', background: tab === t.id ? 'rgba(201,168,76,0.25)' : 'rgba(90,85,112,0.4)',
+                  color: tab === t.id ? 'var(--gold)' : 'var(--muted)',
+                  borderRadius: '9999px', padding: '0 0.28rem', lineHeight: '1.4',
+                }}>
+                  {badge}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
 
-      {/* Known locations */}
-      {locations.length > 0 && (
-        <div>
-          <p style={{ color: 'var(--muted)', marginBottom: '0.375rem', letterSpacing: '0.06em', fontSize: '0.65rem' }}>
-            ◈ 알려진 장소 ({locations.length})
-          </p>
-          <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            {locations.map((name) => (
-              <li
-                key={name}
-                style={{
-                  color: '#a89880',
-                  fontSize: '0.7rem',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                · {name}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* Tab content */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0.875rem 1rem' }}>
 
-      {/* Status effects */}
-      {status_effects?.length > 0 && (
-        <div>
-          <p style={{ color: 'var(--muted)', marginBottom: '0.375rem', letterSpacing: '0.06em', fontSize: '0.65rem' }}>
-            ✦ 상태이상
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-            {status_effects.map((e, i) => (
-              <span
-                key={i}
-                style={{
-                  background: 'rgba(139,92,246,0.15)',
-                  color: '#c4b5fd',
-                  border: '1px solid rgba(139,92,246,0.35)',
-                  borderRadius: '0.375rem',
-                  padding: '0.15rem 0.5rem',
-                  fontSize: '0.65rem',
-                }}
-              >
-                {e}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+        {/* ── 상태 tab ── */}
+        {tab === 'stat' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+            {/* HP */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                <span style={{ color: 'var(--muted)', letterSpacing: '0.05em' }}>HP</span>
+                <span className={hpFlash ? `stat-flash-${hpFlash}` : ''} style={{ color: hpColor, fontFamily: 'monospace', fontWeight: 600 }}>
+                  {stats.hp}/{stats.max_hp}
+                </span>
+              </div>
+              <div style={{ height: '4px', background: 'var(--bg)', borderRadius: '9999px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${hpPct}%`, background: hpColor, borderRadius: '9999px', transition: 'width 0.4s, background 0.4s', boxShadow: `0 0 6px ${hpColor}60` }} />
+              </div>
+            </div>
 
-      {/* Inventory */}
-      {(inventory?.length > 0) && (
-        <div>
-          <p style={{ color: 'var(--muted)', marginBottom: '0.375rem', letterSpacing: '0.06em', fontSize: '0.65rem' }}>
-            ◈ 인벤토리 ({inventory.length})
-          </p>
-          <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            {inventory.map((item, i) => (
-              <li
-                key={i}
-                title={item}
-                style={{
-                  color: '#a89880',
-                  background: 'var(--bg)',
-                  borderRadius: '0.375rem',
-                  padding: '0.3rem 0.5rem',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  fontSize: '0.72rem',
-                  border: '1px solid var(--border)',
-                }}
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+            {/* MP */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                <span style={{ color: 'var(--muted)', letterSpacing: '0.05em' }}>MP</span>
+                <span className={mpFlash ? `stat-flash-${mpFlash}` : ''} style={{ color: '#818cf8', fontFamily: 'monospace', fontWeight: 600 }}>
+                  {stats.mp}/{stats.max_mp}
+                </span>
+              </div>
+              <div style={{ height: '4px', background: 'var(--bg)', borderRadius: '9999px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${mpPct}%`, background: 'linear-gradient(90deg, #4f46e5, #818cf8)', borderRadius: '9999px', transition: 'width 0.4s', boxShadow: '0 0 6px rgba(129,140,248,0.4)' }} />
+              </div>
+            </div>
 
-      {/* Quests */}
-      {quests?.length > 0 && (
-        <div>
-          <p style={{ color: 'var(--muted)', marginBottom: '0.375rem', letterSpacing: '0.06em', fontSize: '0.65rem' }}>
-            ◆ 퀘스트 ({quests.length})
-          </p>
-          <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {quests.map((q, i) => (
-              <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.375rem', fontSize: '0.72rem' }}>
-                <span style={{ color: 'var(--gold)', marginTop: '0.1rem', flexShrink: 0 }}>▸</span>
-                <div>
-                  <span style={{ color: 'var(--text)', lineHeight: 1.4 }}>{q}</span>
-                  {quest_details?.[q] && (
-                    <p style={{ color: 'var(--muted)', fontSize: '0.65rem', marginTop: '0.15rem', lineHeight: 1.4 }}>
-                      {quest_details[q]}
-                    </p>
-                  )}
+            {/* XP */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                <span style={{ color: 'var(--muted)', letterSpacing: '0.05em' }}>XP</span>
+                <span className={xpFlash ? `stat-flash-${xpFlash}` : ''} style={{ color: 'rgba(201,168,76,0.8)', fontFamily: 'monospace', fontWeight: 600 }}>
+                  {xp || 0}/{xp_to_next || 100}
+                </span>
+              </div>
+              <div style={{ height: '4px', background: 'var(--bg)', borderRadius: '9999px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${xpPct}%`, background: 'linear-gradient(90deg, #8a6820, var(--gold))', borderRadius: '9999px', transition: 'width 0.4s', boxShadow: '0 0 6px rgba(201,168,76,0.3)' }} />
+              </div>
+            </div>
+
+            <div style={{ height: '1px', background: 'var(--border)' }} />
+
+            {/* Location */}
+            <div>
+              <p style={{ color: 'var(--muted)', marginBottom: '0.25rem', letterSpacing: '0.06em', fontSize: '0.65rem' }}>◈ 현재 위치</p>
+              <p style={{ color: 'var(--text)', fontStyle: 'italic', fontSize: '0.8rem' }}>{location || '???'}</p>
+              {(timeOfDay || weather) && (
+                <p style={{ color: 'var(--muted)', fontSize: '0.65rem', marginTop: '0.25rem' }}>
+                  {[timeOfDay, weather].filter(Boolean).join(' · ')}
+                </p>
+              )}
+            </div>
+
+            {/* Status effects */}
+            {status_effects?.length > 0 && (
+              <div>
+                <p style={{ color: 'var(--muted)', marginBottom: '0.35rem', letterSpacing: '0.06em', fontSize: '0.65rem' }}>✦ 상태이상</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                  {status_effects.map((e, i) => (
+                    <span key={i} style={{ background: 'rgba(139,92,246,0.15)', color: '#c4b5fd', border: '1px solid rgba(139,92,246,0.35)', borderRadius: '0.375rem', padding: '0.15rem 0.5rem', fontSize: '0.65rem' }}>
+                      {e}
+                    </span>
+                  ))}
                 </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── 퀘스트 tab ── */}
+        {tab === 'quest' && (
+          <div>
+            {questCount === 0 ? (
+              <p style={{ color: 'var(--muted)', fontSize: '0.72rem', textAlign: 'center', padding: '2rem 0', opacity: 0.6 }}>진행 중인 퀘스트 없음</p>
+            ) : (
+              <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                {quests.map((q, i) => (
+                  <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.375rem', fontSize: '0.72rem' }}>
+                    <span style={{ color: 'var(--gold)', marginTop: '0.1rem', flexShrink: 0 }}>▸</span>
+                    <div>
+                      <span style={{ color: 'var(--text)', lineHeight: 1.5 }}>{q}</span>
+                      {quest_details?.[q] && (
+                        <p style={{ color: 'var(--muted)', fontSize: '0.65rem', marginTop: '0.15rem', lineHeight: 1.4 }}>
+                          {quest_details[q]}
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {/* ── NPC tab ── */}
+        {tab === 'npc' && (
+          <div>
+            {npcCount === 0 ? (
+              <p style={{ color: 'var(--muted)', fontSize: '0.72rem', textAlign: 'center', padding: '2rem 0', opacity: 0.6 }}>만난 NPC 없음</p>
+            ) : (
+              <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {npcs.map(([name, info]) => {
+                  const { icon, color } = attitudeIcon(info.attitude ?? 0)
+                  return (
+                    <li key={name} title={info.desc || ''} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', fontSize: '0.72rem' }}>
+                      <span style={{ color, flexShrink: 0, marginTop: '0.05rem' }}>{icon}</span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                        {info.desc && (
+                          <div style={{ color: 'var(--muted)', fontSize: '0.65rem', marginTop: '0.1rem', lineHeight: 1.35,
+                            overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                            {info.desc}
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {/* ── 지도 tab ── */}
+        {tab === 'map' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <p style={{ color: 'var(--muted)', marginBottom: '0.35rem', letterSpacing: '0.06em', fontSize: '0.65rem' }}>
+                ◈ 알려진 장소 ({allLocs.length})
+              </p>
+              {allLocs.length === 0 ? (
+                <p style={{ color: 'var(--muted)', fontSize: '0.7rem', opacity: 0.6 }}>탐험한 장소 없음</p>
+              ) : (
+                <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  {allLocs.map(name => (
+                    <li key={name} style={{
+                      color: name === location ? 'var(--gold-light)' : '#a89880',
+                      fontSize: '0.7rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      fontWeight: name === location ? 600 : 400,
+                    }}>
+                      {name === location ? '▶ ' : '· '}{name}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {inventory?.length > 0 && (
+              <div>
+                <p style={{ color: 'var(--muted)', marginBottom: '0.35rem', letterSpacing: '0.06em', fontSize: '0.65rem' }}>
+                  ◈ 인벤토리 ({inventory.length})
+                </p>
+                <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  {inventory.map((item, i) => (
+                    <li key={i} title={item} style={{
+                      color: '#a89880', background: 'var(--bg)', borderRadius: '0.375rem',
+                      padding: '0.3rem 0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      fontSize: '0.72rem', border: '1px solid var(--border)',
+                    }}>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -26,9 +26,14 @@ application = FastAPI(title="AI Dungeon RPG API", lifespan=lifespan)
 application.state.limiter = limiter
 application.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+_is_local = any(h in (FRONTEND_URL or "") for h in ("localhost", "127.0.0.1"))
+_origins   = [FRONTEND_URL] if FRONTEND_URL else []
+if _is_local:
+    _origins += ["http://localhost:5173", "http://localhost:3000"]
+
 application.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL, "http://localhost:5173", "http://localhost:3000"],
+    allow_origins=_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

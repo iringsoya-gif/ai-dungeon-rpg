@@ -140,6 +140,17 @@ def _history_to_dict(h: History) -> dict:
     }
 
 
+def _detect_genre_from_world(world: dict) -> str:
+    desc = world.get("description", "")
+    fantasy = ["마법", "검", "용", "왕국", "엘프", "기사", "성", "마법사"]
+    scifi   = ["우주", "로봇", "사이버", "인공지능", "함선", "행성", "미래"]
+    horror  = ["공포", "귀신", "저주", "악마", "살인", "유령", "크리처"]
+    if any(k in desc for k in fantasy): return "fantasy"
+    if any(k in desc for k in scifi):   return "scifi"
+    if any(k in desc for k in horror):  return "horror"
+    return "modern"
+
+
 def _get_owned_game(game_id: str, user: User, db: Session) -> Game:
     try:
         gid = uuid.UUID(game_id)
@@ -212,6 +223,54 @@ def list_games(
     return result
 
 
+@router.get("/public")
+def list_public_stories(
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 20,
+):
+    """최근 완료/사망 게임의 공개 목록 (인증 불필요)"""
+    games = (
+        db.query(Game)
+        .filter(Game.status.in_(["completed", "dead"]))
+        .order_by(Game.last_played.desc())
+        .offset(skip)
+        .limit(min(limit, 50))
+        .all()
+    )
+    result = []
+    for g in games:
+        char = json.loads(g.character_json)
+        world = json.loads(g.world_json)
+        last_gm = (
+            db.query(History)
+            .filter(History.game_id == g.id, History.role == "gm")
+            .order_by(History.turn.desc())
+            .first()
+        )
+        preview = None
+        if last_gm:
+            clean = re.sub(r'```json[\s\S]*?```', '', last_gm.content).strip()
+            preview = clean[:100] if clean else None
+        result.append({
+            "id":           str(g.id),
+            "title":        g.title,
+            "status":       g.status,
+            "hardcore_mode": g.hardcore_mode,
+            "turn_count":   g.turn_count,
+            "last_played":  g.last_played.isoformat(),
+            "preview":      preview,
+            "character": {
+                "name":  char.get("name"),
+                "class": char.get("class"),
+                "level": char.get("level", 1),
+            },
+            "genre":      _detect_genre_from_world(world),
+            "created_at": g.created_at.isoformat() if g.created_at else None,
+        })
+    return result
+
+
 @router.get("/{game_id}")
 def get_game(
     game_id: str,
@@ -262,7 +321,7 @@ async def take_action(
                 full_response += payload
                 yield f"data: {json.dumps({'text': payload})}\n\n"
             elif event_type == "error":
-                yield f"data: {json.dumps({'error': payload})}\n\n"
+                yield f"data: {json.dumps({'error': payload, 'done': False})}\n\n"
                 return
             elif event_type == "done":
                 full_response = payload["full_response"]

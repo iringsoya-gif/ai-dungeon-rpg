@@ -10,7 +10,7 @@ def estimate_tokens(text: str) -> int:
 class ContextManager:
 
     def needs_compression(self, histories: list) -> bool:
-        return sum(h.token_count for h in histories) > TOKEN_LIMIT
+        return sum((h.token_count or 0) for h in histories) > TOKEN_LIMIT
 
     def build_context(self, game, histories: list) -> list:
         """Claude에 보낼 messages 배열 구성"""

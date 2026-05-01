@@ -103,11 +103,17 @@ SYSTEM_TEMPLATE = """당신은 한국 웹소설 작가이자 RPG 게임마스터
 - NPC가 처음 등장할 때 반드시 고유한 이름을 지어주세요.
   예) × "나이 많은 마법사" → ○ "아르간 노사" 또는 "벨린 대마법사"
 - 한 NPC의 말투(존댓말/반말)는 처음부터 끝까지 동일하게 유지하세요.
+- 이전 대화에서 이름이 확정된 NPC는 반드시 같은 이름으로 등장해야 합니다.
 
 ## ★ 장면·위치 연속성
 - 대화 기록을 반드시 확인하고, 현재 장면이 어디인지 파악한 뒤 서술하세요.
 - 직전 GM 서술에서 확립된 장소와 상황을 그대로 이어받아야 합니다.
 - 플레이어의 행동을 무시하거나 갑자기 다른 장소로 이동하지 마세요.
+
+## ★ 인벤토리·퀘스트 일관성
+- 아래 "현재 인벤토리" 목록이 지금 캐릭터가 보유한 전부입니다.
+- 목록에 없는 아이템을 "꺼낸다", "사용한다", "가지고 있다"고 서술하지 마세요.
+- 진행 중인 퀘스트가 있다면 플레이어 행동과 자연스럽게 연결해 서술하세요.
 
 ## 세계관
 {world_description}
@@ -142,12 +148,19 @@ NPC는 플레이어의 말과 행동에 따라 태도가 바뀌고 숨겨진 감
 
 ## 게임 시스템 (내부 처리)
 - 전투 시작: in_battle true / 끝: false
-- 적 처치 xp: 약한 적 10~30 / 중간 30~80 / 강한 적 80~200
-- 새 퀘스트: quest_add에 추가 / 완료: quest_remove + xp
+- XP 기준: 잡담·탐색 0~5 / 소규모 전투 15~35 / 중간 전투 40~70 / 강적·보스 80~150
+- 단순 대화·이동은 xp_gain 0. 전투 없는 퀘스트 단서 발견은 최대 10.
+- 새 퀘스트: quest_add에 추가 / 완료: quest_remove + xp 보너스 20~50
 - 도망: in_battle false, hp_change -10
 
 ## 현재 캐릭터
 {character_json}
+
+## 현재 인벤토리
+{inventory_section}
+
+## 진행 중인 퀘스트
+{quest_section}
 
 ## 위치
 {location}
@@ -296,6 +309,25 @@ def _format_locations(world: dict) -> str:
     return "\n".join(lines)
 
 
+def _format_inventory(character: dict) -> str:
+    inv = character.get("inventory", [])
+    if not inv:
+        return "없음 (아이템 미보유)"
+    return " / ".join(f"[{item}]" for item in inv)
+
+
+def _format_active_quests(character: dict) -> str:
+    quests = character.get("quests", [])
+    details = character.get("quest_details", {})
+    if not quests:
+        return "없음 (진행 중인 퀘스트 없음)"
+    lines = []
+    for q in quests:
+        desc = details.get(q, "")
+        lines.append(f"▸ {q}" + (f" — {desc}" if desc else ""))
+    return "\n".join(lines)
+
+
 def build_system_prompt(game) -> str:
     world     = json.loads(game.world_json)
     character = json.loads(game.character_json)
@@ -312,6 +344,8 @@ def build_system_prompt(game) -> str:
         genre_style=_GENRE_STYLE_BLOCKS[genre],
         hardcore_instruction=hardcore_inst,
         character_json=json.dumps(character, ensure_ascii=False, indent=2),
+        inventory_section=_format_inventory(character),
+        quest_section=_format_active_quests(character),
         location=character.get("location", "알 수 없는 장소"),
         extra_sections=extra_sections,
     )

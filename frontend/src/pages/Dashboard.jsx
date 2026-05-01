@@ -22,6 +22,8 @@ export default function Dashboard() {
   const [syncing, setSyncing]   = useState(false)
   const [copiedId, setCopiedId] = useState(null)
   const [modal, setModal]       = useState({ open: false, title: '', message: '', onConfirm: null, danger: false, alertOnly: false })
+  const [filterStatus, setFilterStatus] = useState('전체')
+  const [sortBy, setSortBy] = useState('최신순')
 
   const copyStory = (id) => {
     navigator.clipboard.writeText(`${window.location.origin}/story/${id}`)
@@ -74,6 +76,21 @@ export default function Dashboard() {
   }
 
   const canCreate = user?.plan === 'paid' || games.filter(g => g.status === 'active').length < 1
+
+  const filteredGames = games
+    .filter(g => {
+      if (filterStatus === '전체') return true
+      if (filterStatus === '진행중') return g.status === 'active'
+      if (filterStatus === '완료') return g.status === 'completed'
+      if (filterStatus === '사망') return g.status === 'dead'
+      return true
+    })
+    .sort((a, b) => {
+      if (sortBy === '최신순') return new Date(b.last_played) - new Date(a.last_played)
+      if (sortBy === '턴 많은 순') return (b.turn_count || 0) - (a.turn_count || 0)
+      if (sortBy === '레벨 높은 순') return (b.character?.level || 0) - (a.character?.level || 0)
+      return 0
+    })
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', color: 'var(--text)' }}>
@@ -207,6 +224,42 @@ export default function Dashboard() {
           )}
         </div>
 
+        {/* Filter / Sort bar */}
+        {!loading && games.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.875rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '0.25rem', flex: 1, flexWrap: 'wrap' }}>
+              {['전체', '진행중', '완료', '사망'].map(f => (
+                <button
+                  key={f}
+                  onClick={() => setFilterStatus(f)}
+                  style={{
+                    fontSize: '0.7rem', padding: '0.25rem 0.625rem', borderRadius: '9999px', cursor: 'pointer',
+                    background: filterStatus === f ? 'rgba(157,127,232,0.12)' : 'transparent',
+                    color: filterStatus === f ? 'var(--purple)' : 'var(--muted)',
+                    border: `1px solid ${filterStatus === f ? 'rgba(157,127,232,0.35)' : 'var(--border)'}`,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value)}
+              style={{
+                fontSize: '0.7rem', padding: '0.25rem 0.5rem', borderRadius: '0.5rem',
+                background: 'var(--surface)', color: 'var(--muted)',
+                border: '1px solid var(--border)', cursor: 'pointer', outline: 'none',
+              }}
+            >
+              {['최신순', '턴 많은 순', '레벨 높은 순'].map(o => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
             {[1, 2, 3].map(i => (
@@ -224,11 +277,15 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-        ) : games.length === 0 ? (
+        ) : filteredGames.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '5rem 1rem' }}>
             <div style={{ fontSize: '2.5rem', marginBottom: '1rem', opacity: 0.4 }}>◈</div>
-            <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem', marginBottom: '0.4rem' }}>아직 모험이 없습니다</p>
-            <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginBottom: '2rem' }}>새 모험을 시작하여 전설을 써내려가세요</p>
+            <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem', marginBottom: '0.4rem' }}>
+              {filterStatus !== '전체' ? `'${filterStatus}' 모험이 없습니다` : '아직 모험이 없습니다'}
+            </p>
+            <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginBottom: '2rem' }}>
+              {filterStatus !== '전체' ? '다른 필터를 선택해보세요' : '새 모험을 시작하여 전설을 써내려가세요'}
+            </p>
             {canCreate && (
               <Link
                 to="/new-game"
@@ -249,26 +306,29 @@ export default function Dashboard() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-            {games.map(game => {
+            {filteredGames.map(game => {
               const isActive    = game.status === 'active'
               const isDead      = game.status === 'dead'
               const isCompleted = game.status === 'completed'
+              const hpRatio     = game.character?.stats ? game.character.stats.hp / (game.character.stats.max_hp || 1) : 1
+              const isHpDanger  = isActive && hpRatio < 0.3
               return (
                 <div
                   key={game.id}
                   style={{
                     background: 'var(--surface)',
-                    border: `1px solid ${isActive ? 'var(--border2)' : 'var(--border)'}`,
+                    border: `1px solid ${isHpDanger ? 'rgba(239,68,68,0.45)' : isActive ? 'var(--border2)' : 'var(--border)'}`,
                     borderRadius: '0.875rem',
                     padding: '1rem 1.125rem',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.875rem',
-                    transition: 'border-color 0.2s',
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
                     opacity: isDead || isCompleted ? 0.65 : 1,
+                    boxShadow: isHpDanger ? '0 0 12px rgba(239,68,68,0.08)' : undefined,
                   }}
-                  onMouseEnter={e => { if (isActive) e.currentTarget.style.borderColor = 'rgba(157,127,232,0.35)' }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = isActive ? 'var(--border2)' : 'var(--border)' }}
+                  onMouseEnter={e => { if (isActive) e.currentTarget.style.borderColor = isHpDanger ? 'rgba(239,68,68,0.65)' : 'rgba(157,127,232,0.35)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = isHpDanger ? 'rgba(239,68,68,0.45)' : isActive ? 'var(--border2)' : 'var(--border)' }}
                 >
                   {/* Status dot */}
                   <div style={{
@@ -294,8 +354,18 @@ export default function Dashboard() {
                         <span style={{ fontSize: '0.6rem', color: 'var(--muted)', border: '1px solid var(--border)', padding: '0.1rem 0.4rem', borderRadius: '9999px' }}>완료</span>
                       )}
                     </div>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-                      {game.character?.name} · {game.character?.class} · <span style={{ fontFamily: 'monospace' }}>{game.turn_count}</span>턴
+                    <p style={{ fontSize: '0.75rem', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <span>{game.character?.name} · {game.character?.class} · <span style={{ fontFamily: 'monospace' }}>{game.turn_count}</span>턴</span>
+                      {isHpDanger && (
+                        <span style={{ fontSize: '0.6rem', color: '#f87171', border: '1px solid rgba(239,68,68,0.35)', padding: '0.1rem 0.4rem', borderRadius: '9999px', background: 'rgba(239,68,68,0.08)' }}>
+                          HP 위험
+                        </span>
+                      )}
+                      {isActive && game.character?.quests?.length > 0 && (
+                        <span style={{ fontSize: '0.6rem', color: 'var(--gold)', border: '1px solid rgba(201,168,76,0.3)', padding: '0.1rem 0.4rem', borderRadius: '9999px', background: 'rgba(201,168,76,0.07)' }}>
+                          ◆ {game.character.quests.length}
+                        </span>
+                      )}
                     </p>
                     <p style={{ fontSize: '0.68rem', color: 'var(--muted)', opacity: 0.6, marginTop: '0.1rem' }}>
                       {game.character?.location && <span>📍 {game.character.location} &nbsp;·&nbsp; </span>}
