@@ -108,7 +108,7 @@ export function useStream() {
       if (err.name === 'AbortError') return
 
       // 네트워크 오류·5xx → 재시도 (4xx 제외)
-      if (attempt < MAX_RETRIES && !(err.httpStatus >= 400 && err.httpStatus < 600)) {
+      if (attempt < MAX_RETRIES && !(err.httpStatus >= 400 && err.httpStatus < 500)) {
         clearStream()
         await new Promise(r => setTimeout(r, RETRY_DELAY_MS))
         if (!abortRef.current?.signal.aborted) {

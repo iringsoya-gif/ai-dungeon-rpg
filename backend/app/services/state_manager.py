@@ -86,9 +86,11 @@ def apply_state_changes(character: dict, changes: dict) -> dict:
                 c.setdefault("quests", []).append(q)
     if "quest_remove" in sc:
         to_remove = [q["name"] if isinstance(q, dict) else q for q in sc["quest_remove"]]
+        removed = [q for q in c.get("quests", []) if q in to_remove]
         c["quests"] = [q for q in c.get("quests", []) if q not in to_remove]
         for name in to_remove:
             c.get("quest_details", {}).pop(name, None)
+        c["quests_completed_count"] = c.get("quests_completed_count", 0) + len(removed)
     if "status_effects_add" in sc:
         c.setdefault("status_effects", []).extend(sc["status_effects_add"])
     if "status_effects_remove" in sc:

@@ -111,6 +111,7 @@ def _build_initial_character(name: str, char_class: str, background: str) -> dic
         "inventory": ["기본 무기", "포션 1개"],
         "skills": [],
         "quests": [],
+        "quests_completed_count": 0,
         "status_effects": [],
         "in_battle": False,
     }
@@ -446,7 +447,7 @@ def complete_game(
         "play_time_minutes": play_minutes,
         "final_level": character.get("level", 1),
         "final_hp": character.get("stats", {}).get("hp", 0),
-        "quests_completed": len(character.get("quests", [])),
+        "quests_completed": character.get("quests_completed_count", 0),
         "inventory_count": len(character.get("inventory", [])),
     }
 

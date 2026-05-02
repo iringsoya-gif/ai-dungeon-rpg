@@ -38,6 +38,11 @@ class ContextManager:
         """토큰 초과 시 요약 생성 후 game.summary 업데이트 (non-blocking)"""
         if not self.needs_compression(histories):
             return
+        # Regenerate summary every MAX_RECENT turns worth of new content to avoid
+        # an extra AI call on every single turn once above the token limit.
+        old_count = len(list(histories)[:-MAX_RECENT])
+        if game.summary and old_count % MAX_RECENT != 0:
+            return
 
         old_histories = list(histories)[:-MAX_RECENT]
         old_content = "\n".join(
