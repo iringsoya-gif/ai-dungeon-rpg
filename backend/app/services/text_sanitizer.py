@@ -1,5 +1,17 @@
 import re
 
+# 서술에서 자주 오용되는 영어 단어 → 한국어 치환 (대소문자 무관)
+_ENGLISH_MAP = [
+    (re.compile(r'MAGIC',   re.IGNORECASE), '마법'),
+    (re.compile(r'SPELL',   re.IGNORECASE), '마법'),
+    (re.compile(r'MANA',    re.IGNORECASE), '마나'),
+    (re.compile(r'QUEST',   re.IGNORECASE), '퀘스트'),
+    (re.compile(r'SKILL',   re.IGNORECASE), '스킬'),
+    (re.compile(r'BATTLE',  re.IGNORECASE), '전투'),
+    (re.compile(r'ATTACK',  re.IGNORECASE), '공격'),
+    (re.compile(r'DUNGEON', re.IGNORECASE), '던전'),
+]
+
 # 자주 출현하는 한자·일본어 → 한국어 치환 사전 (긴 패턴 우선 적용)
 HANJA_MAP = {
     # 2자 이상
@@ -41,9 +53,12 @@ _CJK_PATTERN = re.compile(
 
 
 def sanitize_korean(text: str) -> str:
-    # 1단계: 사전 치환 (긴 패턴 먼저)
+    # 1단계: 영어 게임 용어 치환 (JSON 블록 밖 서술에서 오용 방지)
+    for pattern, korean in _ENGLISH_MAP:
+        text = pattern.sub(korean, text)
+    # 2단계: 한자·일본어 사전 치환 (긴 패턴 먼저)
     for hanja, korean in sorted(HANJA_MAP.items(), key=lambda x: -len(x[0])):
         text = text.replace(hanja, korean)
-    # 2단계: 사전에 없는 나머지 한자·일본어 문자 제거
+    # 3단계: 사전에 없는 나머지 한자·일본어 문자 제거
     text = _CJK_PATTERN.sub("", text)
     return text
